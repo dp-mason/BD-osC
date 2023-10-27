@@ -26,10 +26,10 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="1.3993369"
-     inkscape:cx="47.879821"
-     inkscape:cy="279.06075"
+     inkscape:cx="30.014216"
+     inkscape:cy="281.20462"
      inkscape:document-units="mm"
-     inkscape:current-layer="text1229"
+     inkscape:current-layer="layer2"
      showgrid="false"
      units="mm"
      inkscape:snap-bbox="true"
@@ -75,9 +75,7 @@
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.93889px;line-height:6.61458px;font-family:'Gotham Rounded';-inkscape-font-specification:'Gotham Rounded';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        id="text1229">
       <g
-         aria-label="To 
-Key
-Frames"
+         aria-label="To  Key Frames"
          id="text295"
          style="font-size:9px;line-height:8.325px;font-family:'Annapurna SIL';-inkscape-font-specification:'Annapurna SIL';text-align:start;text-anchor:start;display:inline;fill:#00ff00;stroke-width:0.0700043px">
         <path
@@ -145,5 +143,12 @@ Frames"
        id="circle4956-3"
        style="display:inline;vector-effect:none;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
        inkscape:label="tracktwo" />
+    <circle
+       style="display:inline;vector-effect:none;fill:#0000ff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+       id="circle4958-3"
+       cx="15.002869"
+       cy="83.231094"
+       r="4"
+       inkscape:label="debug" />
   </g>
 </svg>
