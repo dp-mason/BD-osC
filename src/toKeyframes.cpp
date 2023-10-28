@@ -2,7 +2,8 @@
 
 
 struct ToKeyframes : Module {
-	int64_t keyframeRate = 2;
+	int64_t keyframeRate = 2; // stored in this data type so that there is less casting per process call
+	std::vector<float> keyframes;
 
 	enum ParamId {
 		PARAMS_LEN
@@ -35,6 +36,8 @@ struct ToKeyframes : Module {
 			// output the value of the keyframe
 			// converts this frame to a value between 0..1 depending on the frame it is in this second 1/24, 2/24, ...
 			outputs[DEBUG_OUTPUT].setVoltage( (float)((args.frame / framesInKeyframe) % keyframeRate) / (float)(keyframeRate) );
+			keyframes.push_back(inputs[TRACKONE_INPUT].getVoltage());
+			DEBUG("number of keyframes is %ld", keyframes.size());
 		}
 	}
 };
