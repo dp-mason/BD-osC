@@ -1,7 +1,7 @@
-/build
-/dist
-/*.so
-/*.dylib
-/*.dll
+/VCV_Module/build
+/VCV_Module/dist
+/VCV_Module/*.so
+/VCV_Module/*.dylib
+/VCV_Module/*.dll
 .DS_Store
 *keyframes*.csv
