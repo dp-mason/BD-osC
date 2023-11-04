@@ -25,7 +25,7 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms) {
 	// Specify the CSV file path
     std::string vcv_dev_folder(std::getenv("VCV_DEV"));
 	// std::string filePath = vcv_dev_folder + "/VCV-Keyframes/keyframes.csv";
-	std::string filePath = vcv_dev_folder + "/VCV-Keyframes/VCV_Module/blender_files/VCVkframes.csv";
+	std::string filePath = vcv_dev_folder + "/VCV-Keyframes/blender_files/keyframes.csv";
 
 	// Create or open the CSV file and write the CSV data
 	std::ofstream csvFile(filePath);
