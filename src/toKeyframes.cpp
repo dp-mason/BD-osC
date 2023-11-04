@@ -33,7 +33,7 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms) {
 
 struct ToKeyframes : Module {
 
-	int64_t keyframeRate = 2; // stored in this data type so that there is less casting per process call
+	int64_t keyframeRate = 24; // stored in this data type so that there is less casting per process call
 	int64_t startFrame = 0; // this value is set when the RECORD input is triggered
 	bool recordingActive = false; // determines whether keyframes will be added
 	// each row is a keyframe, each column is a track. Makes it easier to append values (and prob better for mem management)
