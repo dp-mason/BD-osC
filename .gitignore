@@ -4,5 +4,5 @@
 /VCV_Module/*.dylib
 /VCV_Module/*.dll
 .DS_Store
-*keyframes*.csv
+/blender_files/*keyframes*.csv
 .vscode

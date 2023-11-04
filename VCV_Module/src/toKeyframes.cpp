@@ -2,6 +2,8 @@
 
 #include <future>
 #include <fstream>
+#include <sstream>
+#include <string>
 
 // Function to convert a vector of floats to a CSV string
 void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms) {
@@ -22,7 +24,8 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms) {
 
 	// Specify the CSV file path
     std::string vcv_dev_folder(std::getenv("VCV_DEV"));
-	std::string filePath = vcv_dev_folder + "/VCV-Keyframes/keyframes.csv";
+	// std::string filePath = vcv_dev_folder + "/VCV-Keyframes/keyframes.csv";
+	std::string filePath = vcv_dev_folder + "/VCV-Keyframes/VCV_Module/blender_files/VCVkframes.csv";
 
 	// Create or open the CSV file and write the CSV data
 	std::ofstream csvFile(filePath);
@@ -154,7 +157,9 @@ struct ToKeyframes : Module {
 
 		// asynchronously save the keyframes to disk as a CSV file upon trigger
 		if(prevSaveVoltage == 0.f && inputs[SAVE_INPUT].getVoltage() > prevSaveVoltage){
+			DEBUG("Saving Keyframes... ");
 			std::async(saveKeyframesToCSV, keyframes);
+			recordingActive = false;
 			keyframes.clear();
 		}
 		prevSaveVoltage = inputs[SAVE_INPUT].getVoltage();
