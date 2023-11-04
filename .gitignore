@@ -5,3 +5,4 @@
 /VCV_Module/*.dll
 .DS_Store
 *keyframes*.csv
+.vscode
