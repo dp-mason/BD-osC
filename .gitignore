@@ -6,3 +6,4 @@
 .DS_Store
 /blender_files/*keyframes*.csv
 .vscode
+*.blend1
