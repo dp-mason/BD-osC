@@ -1,9 +1,8 @@
 import bpy
 import os
 
-print(os.environ.get('VCV_DEV'))
-
-kframe_file = open( os.path.join("/home/bdc/VCV_dev/VCV-Keyframes/blender_files/keyframes.csv"), "r" )
+vcv_dev = os.environ['HOME'] + "/VCV_dev"
+kframe_file = open( os.path.join(vcv_dev + "/VCV-Keyframes/blender_files/keyframes.csv"), "r" )
 
 kframes = kframe_file.readlines()
 
