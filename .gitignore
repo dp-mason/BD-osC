@@ -7,3 +7,9 @@
 /blender_files/*keyframes*.csv
 .vscode
 *.blend1
+*.wav
+*.mp4
+*.mpg
+*.mp3
+*.ogg
+*.m4a

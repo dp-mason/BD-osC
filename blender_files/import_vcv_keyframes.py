@@ -2,11 +2,11 @@ import bpy
 import os
 
 vcv_dev = os.environ['HOME'] + "/VCV_dev"
-kframe_file = open( os.path.join(vcv_dev + "/VCV-Keyframes/blender_files/keyframes.csv"), "r" )
 
-kframes = kframe_file.readlines()
+kframes    = open( os.path.join(vcv_dev + "/VCV-Keyframes/blender_files/keyframes.csv"), "r" ).readlines()
+wf_kframes = open( os.path.join(vcv_dev + "/VCV-Keyframes/blender_files/waveform_keyframes.csv"), "r" ).readlines()
 
-vcv_geo = bpy.data.collections['vcv_geo']
+vcv_gn     = bpy.data.collections['vcv_gn_templates']
 vcv_tracks = bpy.data.collections['vcv_tracks']
 
 for i in range(0,16):
@@ -28,3 +28,5 @@ for frame in range(0, len(kframes)):
         # good for making the keyframes available to multiple geo nodes setups
         bpy.data.node_groups["VCV_keyframes"].nodes["track_" + str(track_index)].outputs[0].default_value = tracks[track_index]
         bpy.data.node_groups["VCV_keyframes"].nodes["track_" + str(track_index)].outputs[0].keyframe_insert("default_value", frame=frame)
+        
+    

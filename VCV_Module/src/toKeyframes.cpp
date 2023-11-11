@@ -6,13 +6,27 @@
 #include <string>
 
 // Function to convert a vector of floats to a CSV string
-void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms) {
+void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std::string fileName) {
+	if(kyfrms.size() == 0) {
+		return;
+	}
+
 	std::ostringstream csvStream;
 
+	// ADD TITLES TO COLUMNS
+	// for (size_t track = 0; track < kyfrms[0].size(); track++) {
+	// 	csvStream << "track_" + std::to_string(track);
+	// 	if(track != kyfrms[0].size() - 1){
+	// 		csvStream << ",";
+	// 	}
+	// }
+	// csvStream << "\n";
+
+	// Make a row out of each keyframe
 	for (size_t frame = 0; frame < kyfrms.size(); frame++) {
-		for (size_t track = 0; track < 16; track++) {
+		for (size_t track = 0; track < kyfrms[0].size(); track++) {
 			csvStream << std::to_string( kyfrms[frame][track] );
-			if(frame != kyfrms.size()){
+			if(track != kyfrms[0].size() - 1){
 				csvStream << ",";
 			}
 		}
@@ -25,7 +39,7 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms) {
 	// Specify the CSV file path
     std::string vcv_dev_folder(std::getenv("VCV_DEV"));
 	// std::string filePath = vcv_dev_folder + "/VCV-Keyframes/keyframes.csv";
-	std::string filePath = vcv_dev_folder + "/VCV-Keyframes/blender_files/keyframes.csv";
+	std::string filePath = vcv_dev_folder + "/VCV-Keyframes/blender_files/" + fileName;
 
 	// Create or open the CSV file and write the CSV data
 	std::ofstream csvFile(filePath);
@@ -43,9 +57,21 @@ struct ToKeyframes : Module {
 	// each row is a keyframe, each column is a track. Makes it easier to append values (and prob better for mem management)
 	// this means there will be 16 columns, one for each track
 	std::vector<std::vector<float>> keyframes;
+	
 	float prevSaveVoltage = 0.f;
 	float prevStartVoltage = 0.f;
 	float prevStopVoltage = 0.f;
+
+	float input_9_avg = 0.0;
+	float input_10_avg = 0.0;
+	float input_11_avg = 0.0;
+	float input_12_avg = 0.0;
+
+	std::vector<std::vector<float>> input16WaveformKeys;
+
+	// Determines the resolution of a visualized waveform
+	const int64_t waveformResolution = 64;
+	std::vector<float> currWfKeyframe{std::vector<float>(waveformResolution, 0.f)};
 
 	enum ParamId {
 		PARAMS_LEN
@@ -105,6 +131,16 @@ struct ToKeyframes : Module {
 		configOutput(FRAME_START_OUTPUT, "");
 	}
 
+	// resets the average values of the inputs that record keyframes of the average value rather than a straight up sample
+	void resetKfData(){
+		input_9_avg = 0.0;
+		input_10_avg = 0.0;
+		input_11_avg = 0.0;
+		input_12_avg = 0.0;
+
+		currWfKeyframe = {std::vector<float>(waveformResolution, 0.f)};
+	}
+
 	void process(const ProcessArgs& args) override {
 
 		// activate recording if the RECORD input is triggered
@@ -121,46 +157,66 @@ struct ToKeyframes : Module {
 		}
 		prevStopVoltage = inputs[STOP_INPUT].getVoltage();
 		
-		
-		int framesInKeyframe = (int64_t)args.sampleRate / keyframeRate; //calculated every frame bc these values can change during execution
-
-		// use the frame number and sample rate to determine the current time
-		// determine if this frame is the frame when a keyframe needs to be saved based on keyframeRate
-		if(recordingActive && (args.frame - startFrame) % framesInKeyframe == 0) {
-			// output the value of the keyframe
-			// converts this frame to a value between 0..1 depending on the frame it is in this second 1/24, 2/24, ...
-			outputs[FRAME_START_OUTPUT].setVoltage( (float)((args.frame / framesInKeyframe) % keyframeRate) / (float)(keyframeRate) );
+		if(recordingActive) {
+			int framesInKeyframe = (int64_t)args.sampleRate / keyframeRate; // calculated every frame bc sample rate can change during execution
+			int64_t currFrameInKf = (args.frame - startFrame) % framesInKeyframe;
+			int fractionOfAvg = ( 1.0 / float(framesInKeyframe) );
 			
-			std::vector<float> thisKeyframe = {
-				inputs[_1_INPUT].getVoltage(),
-				inputs[_2_INPUT].getVoltage(),
-				inputs[_3_INPUT].getVoltage(),
-				inputs[_4_INPUT].getVoltage(),
-				inputs[_5_INPUT].getVoltage(),
-				inputs[_6_INPUT].getVoltage(),
-				inputs[_7_INPUT].getVoltage(),
-				inputs[_8_INPUT].getVoltage(),
-				inputs[_9_INPUT].getVoltage(),
-				inputs[_10_INPUT].getVoltage(),
-				inputs[_11_INPUT].getVoltage(),
-				inputs[_12_INPUT].getVoltage(),
-				inputs[_13_INPUT].getVoltage(),
-				inputs[_14_INPUT].getVoltage(),
-				inputs[_15_INPUT].getVoltage(),
-				inputs[_16_INPUT].getVoltage()
-			};
+			// accumulate what will be the eventual average value of inputs 9-12
+			input_9_avg  += fractionOfAvg *  inputs[_9_INPUT].getVoltage();
+			input_10_avg += fractionOfAvg * inputs[_10_INPUT].getVoltage();
+			input_11_avg += fractionOfAvg * inputs[_11_INPUT].getVoltage();
+			input_12_avg += fractionOfAvg * inputs[_12_INPUT].getVoltage();
 
-			keyframes.push_back(thisKeyframe);
+			// modify the current waveform keyframe
+			int64_t framesInWfSample = (framesInKeyframe / waveformResolution);
+			int64_t currWfSample = currFrameInKf / framesInWfSample;
+			currWfKeyframe[currWfSample] += (1.0 / float(framesInWfSample)) * inputs[_16_INPUT].getVoltage();
 
-			DEBUG("number of keyframes is %ld", keyframes.size());
+			// if it is determined that this is the last audio frame of the keyframe, save the values to the list of keyframes 
+			if(currFrameInKf == 0){
+				// output the value of the keyframe
+				// converts this frame to a value between 0..1 depending on the frame it is in this second 1/24, 2/24, ...
+				outputs[FRAME_START_OUTPUT].setVoltage( (float)((args.frame / framesInKeyframe) % keyframeRate) / (float)(keyframeRate) );
+				
+				std::vector<float> thisKeyframe = {
+					inputs[_1_INPUT].getVoltage(),
+					inputs[_2_INPUT].getVoltage(),
+					inputs[_3_INPUT].getVoltage(),
+					inputs[_4_INPUT].getVoltage(),
+					inputs[_5_INPUT].getVoltage(),
+					inputs[_6_INPUT].getVoltage(),
+					inputs[_7_INPUT].getVoltage(),
+					inputs[_8_INPUT].getVoltage(),
+					input_9_avg,
+					input_10_avg,
+					input_11_avg,
+					input_12_avg,
+					inputs[_13_INPUT].getVoltage(),
+					inputs[_14_INPUT].getVoltage(),
+					inputs[_15_INPUT].getVoltage(),
+					-1.0
+				};
+
+				keyframes.push_back(thisKeyframe);
+				input16WaveformKeys.push_back(currWfKeyframe);
+
+				// prepare for a new keyframe
+				resetKfData();
+
+				DEBUG("number of keyframes is %ld", keyframes.size());
+			}
 		}
 
 		// asynchronously save the keyframes to disk as a CSV file upon trigger
 		if(prevSaveVoltage == 0.f && inputs[SAVE_INPUT].getVoltage() > prevSaveVoltage){
 			DEBUG("Saving Keyframes... ");
-			std::async(saveKeyframesToCSV, keyframes);
+			std::async(saveKeyframesToCSV, keyframes, "keyframes.csv");
+			std::async(saveKeyframesToCSV, input16WaveformKeys, "waveform_keyframes.csv");
 			recordingActive = false;
 			keyframes.clear();
+
+			resetKfData();
 		}
 		prevSaveVoltage = inputs[SAVE_INPUT].getVoltage();
 	}
