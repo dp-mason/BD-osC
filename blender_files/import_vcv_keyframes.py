@@ -12,7 +12,7 @@ def create_wf_mesh(samples, as_grid:bool=False):
             vert_index = row * len(samples[0]) + col
             
             if as_grid:    
-                verts.append( (row, col, samples[row][col]) )
+                verts.append( (row, -1 * col, samples[row][col]) )
             else:
                 verts.append( (vert_index, 0, samples[row][col]) )
             
@@ -28,7 +28,7 @@ def create_wf_mesh(samples, as_grid:bool=False):
 
     mesh.from_pydata(verts, edges, faces)
     
-    return
+    return obj
 
 vcv_dev = os.environ['HOME'] + "/VCV_dev"
 
@@ -65,4 +65,7 @@ wf_sample_matrix = []
 for row in wf_kframes:
     wf_sample_matrix.append([float(sample) for sample in row.split(",")])
 
-create_wf_mesh(wf_sample_matrix, as_grid=False)
+wf_mesh_obj = create_wf_mesh(wf_sample_matrix, as_grid=True)
+modif = wf_mesh_obj.modifiers.new("wf_nodes", "NODES")
+modif.node_group = bpy.data.node_groups["wf_nodes_grid"]
+modif["Socket_2"] = len(wf_sample_matrix[0])

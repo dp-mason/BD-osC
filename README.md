@@ -1,5 +1,7 @@
 # Voltages to Keyframes
 
+**TODO: Frequency input to waveform visualization so that it does not flicker**
+
 ## Usage Notes
 The dev setup assumes you are on linux (I am on Ubuntu 23, but not sure that changes any file paths)
 
