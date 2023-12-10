@@ -25,3 +25,7 @@ Rack -d
 You can also use the ```-u``` flag to manually set the location of your user directory if you'd like to have a separate one just for development
 
 It looks like the only way to save text files is if you run VCV in develop mode (probably for good reason). Not sure if there is a workaround, but for now do it this way.
+
+TODO: Look int the "writefile()" function in VCV API
+
+![image of the panel layout](./VCV_Module/res/ToKeyframes.jpg)
