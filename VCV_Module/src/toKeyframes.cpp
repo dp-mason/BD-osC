@@ -1,10 +1,5 @@
 #include "plugin.hpp"
 
-#include <future>
-#include <fstream>
-#include <sstream>
-#include <string>
-
 // Function to convert a vector of floats to a CSV string
 void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std::string fileName) {
 	if(kyfrms.size() == 0) {
@@ -51,6 +46,7 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std
 
 struct ToKeyframes : Module {
 
+	// TODO: connect the keyframeRate up with the appropriate param input
 	int64_t keyframeRate = 24; // stored in this data type so that there is less casting per process call
 	int64_t startFrame = 0; // this value is set when the RECORD input is triggered
 	bool recordingActive = false; // determines whether keyframes will be added
@@ -58,87 +54,117 @@ struct ToKeyframes : Module {
 	// this means there will be 16 columns, one for each track
 	std::vector<std::vector<float>> keyframes;
 	
-	float prevSaveVoltage = 0.f;
+	float prevSaveVoltage  = 0.f;
 	float prevStartVoltage = 0.f;
-	float prevStopVoltage = 0.f;
+	float prevStopVoltage  = 0.f;
 
-	float input_9_avg = 0.0;
-	float input_10_avg = 0.0;
-	float input_11_avg = 0.0;
-	float input_12_avg = 0.0;
+	float input_9_avg  = 0.f;
+	float input_10_avg = 0.f;
+	float input_11_avg = 0.f;
+	float input_12_avg = 0.f;
 
-	std::vector<std::vector<float>> input16WaveformKeys;
+	std::vector<std::vector<float>> waveform_I_keys;
+	std::vector<std::vector<float>> waveform_II_keys;
+	std::vector<std::vector<float>> waveform_III_keys;
+	std::vector<std::vector<float>> waveform_IV_keys;
+	std::vector<std::vector<float>> waveform_V_keys;
 
 	// Determines the resolution of a visualized waveform
+	// TODO: connect the waveformResolution up with the appropriate param input
 	const int64_t waveformResolution = 64;
-	std::vector<float> currWfKeyframe{std::vector<float>(waveformResolution, 0.f)};
+
+	std::vector<float> currWfKeyframe_I{std::vector<float>(waveformResolution, 0.f)};
+	std::vector<float> currWfKeyframe_II{std::vector<float>(waveformResolution, 0.f)};
+	std::vector<float> currWfKeyframe_III{std::vector<float>(waveformResolution, 0.f)};
+	std::vector<float> currWfKeyframe_IV{std::vector<float>(waveformResolution, 0.f)};
+	std::vector<float> currWfKeyframe_V{std::vector<float>(waveformResolution, 0.f)};
 
 	enum ParamId {
+		FRAME_RATE_PARAM,
+		WAVE_SAMPLE_RATE_PARAM,
 		PARAMS_LEN
 	};
 	enum InputId {
 		START_INPUT,
-		STOP_INPUT,
+		ABORT_INPUT,
 		SAVE_INPUT,
-		_1_INPUT,
-		_2_INPUT,
-		_3_INPUT,
-		_4_INPUT,
-		_5_INPUT,
-		_6_INPUT,
-		_7_INPUT,
-		_8_INPUT,
-		_9_INPUT,
-		_10_INPUT,
-		_11_INPUT,
-		_12_INPUT,
-		_13_INPUT,
-		_14_INPUT,
-		_15_INPUT,
-		_16_INPUT,
+		INPUT_2_INPUT,
+		WAVE_I_INPUT,
+		INPUT_3_INPUT,
+		INPUT_1_INPUT,
+		WAVE_II_INPUT,
+		INPUT_4_INPUT,
+		VOCT_I_INPUT,
+		VOCT_II_INPUT,
+		INPUT_6_INPUT,
+		INPUT_5_INPUT,
+		WAVE_III_INPUT,
+		INPUT_7_INPUT,
+		WAVE_IV_INPUT,
+		WAVE_V_INPUT,
+		VOCT_III_INPUT,
+		VOCT_IV_INPUT,
+		VOCT_V_INPUT,
+		INPUT_9_INPUT,
+		INPUT_10_INPUT,
+		INPUT_8_INPUT,
+		INPUT_11_INPUT,
+		INPUT_12_INPUT,
+		INPUT_13_INPUT,
 		INPUTS_LEN
 	};
 	enum OutputId {
-		FRAME_START_OUTPUT,
 		OUTPUTS_LEN
 	};
 	enum LightId {
-		FRAME_INDICATOR_LIGHT,
 		LIGHTS_LEN
 	};
 
 	ToKeyframes() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
+		configParam(FRAME_RATE_PARAM, 0.f, 1.f, 0.f, "");
+		configParam(WAVE_SAMPLE_RATE_PARAM, 0.f, 1.f, 0.f, "");
 		configInput(START_INPUT, "");
-		configInput(STOP_INPUT, "");
+		configInput(ABORT_INPUT, "");
 		configInput(SAVE_INPUT, "");
-		configInput(_1_INPUT, "");
-		configInput(_2_INPUT, "");
-		configInput(_3_INPUT, "");
-		configInput(_4_INPUT, "");
-		configInput(_5_INPUT, "");
-		configInput(_6_INPUT, "");
-		configInput(_7_INPUT, "");
-		configInput(_8_INPUT, "");
-		configInput(_9_INPUT, "");
-		configInput(_10_INPUT, "");
-		configInput(_11_INPUT, "");
-		configInput(_12_INPUT, "");
-		configInput(_13_INPUT, "");
-		configInput(_14_INPUT, "");
-		configInput(_15_INPUT, "");
-		configInput(_16_INPUT, "");
-		configOutput(FRAME_START_OUTPUT, "");
+		configInput(WAVE_I_INPUT, "");
+		configInput(WAVE_II_INPUT, "");
+		configInput(WAVE_III_INPUT, "");
+		configInput(WAVE_IV_INPUT, "");
+		configInput(WAVE_V_INPUT, "");
+		configInput(VOCT_I_INPUT, "");
+		configInput(VOCT_II_INPUT, "");
+		configInput(VOCT_III_INPUT, "");
+		configInput(VOCT_IV_INPUT, "");
+		configInput(VOCT_V_INPUT, "");
+		configInput(INPUT_1_INPUT, "");
+		configInput(INPUT_2_INPUT, "");
+		configInput(INPUT_3_INPUT, "");
+		configInput(INPUT_4_INPUT, "");
+		configInput(INPUT_5_INPUT, "");
+		configInput(INPUT_6_INPUT, "");
+		configInput(INPUT_7_INPUT, "");
+		configInput(INPUT_8_INPUT, "");
+		configInput(INPUT_9_INPUT, "");
+		configInput(INPUT_10_INPUT, "");
+		configInput(INPUT_11_INPUT, "");
+		configInput(INPUT_12_INPUT, "");
+		configInput(INPUT_13_INPUT, "");
 	}
 
 	// resets the average values of the inputs that record keyframes of the average value rather than a straight up sample
+	// resets the recorded waveforms to zero
 	void resetKfData(){
-		input_9_avg = 0.0;
+		input_9_avg  = 0.0;
 		input_10_avg = 0.0;
 		input_11_avg = 0.0;
 		input_12_avg = 0.0;
 
-		currWfKeyframe = {std::vector<float>(waveformResolution, 0.f)};
+		currWfKeyframe_I   = {std::vector<float>(waveformResolution, 0.f)};
+		currWfKeyframe_II  = {std::vector<float>(waveformResolution, 0.f)};
+		currWfKeyframe_III = {std::vector<float>(waveformResolution, 0.f)};
+		currWfKeyframe_IV  = {std::vector<float>(waveformResolution, 0.f)}; 
+		currWfKeyframe_V   = {std::vector<float>(waveformResolution, 0.f)};
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -151,11 +177,11 @@ struct ToKeyframes : Module {
 		prevStartVoltage = inputs[START_INPUT].getVoltage();
 
 		// deactivate recording and clear keyframes of the STOP input is triggered
-		if(prevStopVoltage == 0.f && inputs[STOP_INPUT].getVoltage() > prevStopVoltage){
+		if(prevStopVoltage == 0.f && inputs[ABORT_INPUT].getVoltage() > prevStopVoltage){
 			keyframes.clear();
 			recordingActive = false;
 		}
-		prevStopVoltage = inputs[STOP_INPUT].getVoltage();
+		prevStopVoltage = inputs[ABORT_INPUT].getVoltage();
 		
 		if(recordingActive) {
 			int framesInKeyframe = (int64_t)args.sampleRate / keyframeRate; // calculated every frame bc sample rate can change during execution
@@ -163,43 +189,51 @@ struct ToKeyframes : Module {
 			int fractionOfAvg = ( 1.0 / float(framesInKeyframe) );
 			
 			// accumulate what will be the eventual average value of inputs 9-12
-			input_9_avg  += fractionOfAvg *  inputs[_9_INPUT].getVoltage();
-			input_10_avg += fractionOfAvg * inputs[_10_INPUT].getVoltage();
-			input_11_avg += fractionOfAvg * inputs[_11_INPUT].getVoltage();
-			input_12_avg += fractionOfAvg * inputs[_12_INPUT].getVoltage();
+			input_9_avg  += fractionOfAvg *  inputs[INPUT_9_INPUT].getVoltage();
+			input_10_avg += fractionOfAvg * inputs[INPUT_10_INPUT].getVoltage();
+			input_11_avg += fractionOfAvg * inputs[INPUT_11_INPUT].getVoltage();
+			input_12_avg += fractionOfAvg * inputs[INPUT_12_INPUT].getVoltage();
 
 			// modify the current waveform keyframe
 			int64_t framesInWfSample = (framesInKeyframe / waveformResolution);
 			int64_t currWfSample = currFrameInKf / framesInWfSample;
-			currWfKeyframe[currWfSample] += (1.0 / float(framesInWfSample)) * inputs[_16_INPUT].getVoltage();
+
+			// TODO: associate the construction of the waveform keyframes with their associated v/oct inputs
+			currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
+			currWfKeyframe_II[currWfSample]  += (1.0 / float(framesInWfSample)) * inputs[WAVE_II_INPUT].getVoltage();
+			currWfKeyframe_III[currWfSample] += (1.0 / float(framesInWfSample)) * inputs[WAVE_III_INPUT].getVoltage();
+			currWfKeyframe_IV[currWfSample]  += (1.0 / float(framesInWfSample)) * inputs[WAVE_IV_INPUT].getVoltage();
+			currWfKeyframe_V[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_V_INPUT].getVoltage();
 
 			// if it is determined that this is the last audio frame of the keyframe, save the values to the list of keyframes 
 			if(currFrameInKf == 0){
 				// output the value of the keyframe
 				// converts this frame to a value between 0..1 depending on the frame it is in this second 1/24, 2/24, ...
-				outputs[FRAME_START_OUTPUT].setVoltage( (float)((args.frame / framesInKeyframe) % keyframeRate) / (float)(keyframeRate) );
+				//outputs[FRAME_START_OUTPUT].setVoltage( (float)((args.frame / framesInKeyframe) % keyframeRate) / (float)(keyframeRate) );
 				
 				std::vector<float> thisKeyframe = {
-					inputs[_1_INPUT].getVoltage(),
-					inputs[_2_INPUT].getVoltage(),
-					inputs[_3_INPUT].getVoltage(),
-					inputs[_4_INPUT].getVoltage(),
-					inputs[_5_INPUT].getVoltage(),
-					inputs[_6_INPUT].getVoltage(),
-					inputs[_7_INPUT].getVoltage(),
-					inputs[_8_INPUT].getVoltage(),
+					inputs[INPUT_1_INPUT].getVoltage(),
+					inputs[INPUT_2_INPUT].getVoltage(),
+					inputs[INPUT_3_INPUT].getVoltage(),
+					inputs[INPUT_4_INPUT].getVoltage(),
+					inputs[INPUT_5_INPUT].getVoltage(),
+					inputs[INPUT_6_INPUT].getVoltage(),
+					inputs[INPUT_7_INPUT].getVoltage(),
+					inputs[INPUT_8_INPUT].getVoltage(),
 					input_9_avg,
 					input_10_avg,
 					input_11_avg,
 					input_12_avg,
-					inputs[_13_INPUT].getVoltage(),
-					inputs[_14_INPUT].getVoltage(),
-					inputs[_15_INPUT].getVoltage(),
-					-1.0
+					inputs[INPUT_13_INPUT].getVoltage(),
 				};
 
 				keyframes.push_back(thisKeyframe);
-				input16WaveformKeys.push_back(currWfKeyframe);
+
+				waveform_I_keys.push_back(currWfKeyframe_I);
+				waveform_II_keys.push_back(currWfKeyframe_II);
+				waveform_III_keys.push_back(currWfKeyframe_III);
+				waveform_IV_keys.push_back(currWfKeyframe_IV);
+				waveform_V_keys.push_back(currWfKeyframe_V);
 
 				// prepare for a new keyframe
 				resetKfData();
@@ -211,8 +245,12 @@ struct ToKeyframes : Module {
 		// asynchronously save the keyframes to disk as a CSV file upon trigger
 		if(prevSaveVoltage == 0.f && inputs[SAVE_INPUT].getVoltage() > prevSaveVoltage){
 			DEBUG("Saving Keyframes... ");
-			std::async(saveKeyframesToCSV, keyframes, "keyframes.csv");
-			std::async(saveKeyframesToCSV, input16WaveformKeys, "waveform_keyframes.csv");
+			std::async(saveKeyframesToCSV, waveform_I_keys,   "waveform_I_keyframes.csv");
+			std::async(saveKeyframesToCSV, waveform_II_keys,  "waveform_II_keyframes.csv");
+			std::async(saveKeyframesToCSV, waveform_III_keys, "waveform_III_keyframes.csv");
+			std::async(saveKeyframesToCSV, waveform_IV_keys,  "waveform_IV_keyframes.csv");
+			std::async(saveKeyframesToCSV, waveform_V_keys,   "waveform_V_keyframes.csv");
+
 			recordingActive = false;
 			keyframes.clear();
 
@@ -224,38 +262,62 @@ struct ToKeyframes : Module {
 
 
 struct ToKeyframesWidget : ModuleWidget {
+	BGPanel *pBackPanel;
+	
 	ToKeyframesWidget(ToKeyframes* module) {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/ToKeyframes.svg")));
+
+		// Adapted from https://github.com/netboy3/MSM-vcvrack-plugin/
+		pBackPanel = new BGPanel();
+		pBackPanel->box.size = box.size;
+		pBackPanel->imagePath = asset::plugin(pluginInstance, "res/ToKeyframes.jpg");
+		pBackPanel->visible = false;
+		addChild(pBackPanel);
+		pBackPanel->visible = true;
 
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.947, 19.138)), module, ToKeyframes::START_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.626, 19.143)), module, ToKeyframes::STOP_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(44.308, 19.141)), module, ToKeyframes::SAVE_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.122, 42.757)), module, ToKeyframes::_1_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(24.459, 42.757)), module, ToKeyframes::_2_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(36.794, 42.758)), module, ToKeyframes::_3_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(49.132, 42.759)), module, ToKeyframes::_4_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.12, 55.112)), module, ToKeyframes::_5_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(24.458, 55.112)), module, ToKeyframes::_6_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(36.797, 55.11)), module, ToKeyframes::_7_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(49.134, 55.108)), module, ToKeyframes::_8_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.121, 67.462)), module, ToKeyframes::_9_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(24.459, 67.461)), module, ToKeyframes::_10_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(36.795, 67.461)), module, ToKeyframes::_11_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(49.132, 67.462)), module, ToKeyframes::_12_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.122, 79.805)), module, ToKeyframes::_13_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(24.458, 79.804)), module, ToKeyframes::_14_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(36.796, 79.804)), module, ToKeyframes::_15_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(49.133, 79.804)), module, ToKeyframes::_16_INPUT));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(153.479, 23.874)), module, ToKeyframes::FRAME_RATE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(160.08, 49.694)), module, ToKeyframes::WAVE_SAMPLE_RATE_PARAM));
 
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(30.627, 101.444)), module, ToKeyframes::FRAME_START_OUTPUT));
+		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		addChild(createLightCentered<MediumLight<RedLight>>(mm2px(Vec(34.141, 98.447)), module, ToKeyframes::FRAME_INDICATOR_LIGHT));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(153.479, 23.874)), module, ToKeyframes::FRAME_RATE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(160.08, 49.694)), module, ToKeyframes::WAVE_SAMPLE_RATE_PARAM));
+
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(28.534, 13.424)), module, ToKeyframes::START_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(59.936, 13.354)), module, ToKeyframes::ABORT_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(90.878, 19.109)), module, ToKeyframes::SAVE_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(39.611, 45.975)), module, ToKeyframes::INPUT_2_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(106.828, 46.561)), module, ToKeyframes::WAVE_I_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(62.871, 47.059)), module, ToKeyframes::INPUT_3_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.502, 49.044)), module, ToKeyframes::INPUT_1_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(134.556, 49.003)), module, ToKeyframes::WAVE_II_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(85.815, 51.288)), module, ToKeyframes::INPUT_4_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(115.716, 56.7)), module, ToKeyframes::VOCT_I_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(143.609, 59.145)), module, ToKeyframes::VOCT_II_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(53.596, 68.292)), module, ToKeyframes::INPUT_6_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.335, 68.777)), module, ToKeyframes::INPUT_5_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(95.721, 71.242)), module, ToKeyframes::WAVE_III_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(76.645, 71.479)), module, ToKeyframes::INPUT_7_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(123.479, 74.974)), module, ToKeyframes::WAVE_IV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(151.449, 75.38)), module, ToKeyframes::WAVE_V_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(104.727, 81.414)), module, ToKeyframes::VOCT_III_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(132.461, 85.203)), module, ToKeyframes::VOCT_IV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(160.423, 85.545)), module, ToKeyframes::VOCT_V_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(39.608, 90.196)), module, ToKeyframes::INPUT_9_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(62.837, 91.32)), module, ToKeyframes::INPUT_10_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.532, 93.388)), module, ToKeyframes::INPUT_8_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(85.809, 95.59)), module, ToKeyframes::INPUT_11_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(108.676, 100.108)), module, ToKeyframes::INPUT_12_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(131.844, 102.18)), module, ToKeyframes::INPUT_13_INPUT));
 	}
 };
 
