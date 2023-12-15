@@ -4,7 +4,7 @@
 /VCV_Module/*.dylib
 /VCV_Module/*.dll
 .DS_Store
-/blender_files/*keyframes*.csv
+*.csv
 .vscode
 *.blend1
 *.wav
@@ -13,3 +13,4 @@
 *.mp3
 *.ogg
 *.m4a
+*.vcv
