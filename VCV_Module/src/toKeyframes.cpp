@@ -1,7 +1,9 @@
 #include "plugin.hpp"
+#include <patch.hpp>
 
 // Function to convert a vector of floats to a CSV string
-void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std::string fileName) {
+void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std::string filePath) {
+	
 	if(kyfrms.size() == 0) {
 		return;
 	}
@@ -31,20 +33,17 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std
 
 	std::string csvString = csvStream.str();
 
-	// Specify the CSV file path
-    std::string vcv_dev_folder(std::getenv("VCV_DEV"));
-	// std::string filePath = vcv_dev_folder + "/VCV-Keyframes/keyframes.csv";
-	std::string filePath = vcv_dev_folder + "/VCV-Keyframes/blender_files/" + fileName;
+	std::fstream file;
+   	file.open(filePath, std::ios::app | std::ios::binary);
+   	file.write(csvStream.str().c_str(),  sizeof( csvStream.str().c_str() ));
+   	file.close();
 
-	// Create or open the CSV file and write the CSV data
-	std::ofstream csvFile(filePath);
-	if (csvFile.is_open()) {
-		csvFile << csvString;
-		csvFile.close();
-	}
+	return;
 }
 
 struct ToKeyframes : Module {
+
+	
 
 	// TODO: connect the keyframeRate up with the appropriate param input
 	int64_t keyframeRate = 24; // stored in this data type so that there is less casting per process call
@@ -239,17 +238,22 @@ struct ToKeyframes : Module {
 				resetKfData();
 
 				DEBUG("number of keyframes is %ld", keyframes.size());
+
 			}
 		}
 
 		// asynchronously save the keyframes to disk as a CSV file upon trigger
 		if(prevSaveVoltage == 0.f && inputs[SAVE_INPUT].getVoltage() > prevSaveVoltage){
 			DEBUG("Saving Keyframes... ");
-			std::async(saveKeyframesToCSV, waveform_I_keys,   "waveform_I_keyframes.csv");
-			std::async(saveKeyframesToCSV, waveform_II_keys,  "waveform_II_keyframes.csv");
-			std::async(saveKeyframesToCSV, waveform_III_keys, "waveform_III_keyframes.csv");
-			std::async(saveKeyframesToCSV, waveform_IV_keys,  "waveform_IV_keyframes.csv");
-			std::async(saveKeyframesToCSV, waveform_V_keys,   "waveform_V_keyframes.csv");
+			auto parent_folder = APP->patch->path.substr(0, APP->patch->path.rfind("/") + 1);
+			DEBUG("Saving Data to \"%s\"", parent_folder.c_str());
+
+			std::async(saveKeyframesToCSV, keyframes,         parent_folder + "keyframes.csv");
+			std::async(saveKeyframesToCSV, waveform_I_keys,   parent_folder + "waveform_I_keyframes.csv");
+			std::async(saveKeyframesToCSV, waveform_II_keys,  parent_folder + "waveform_II_keyframes.csv");
+			std::async(saveKeyframesToCSV, waveform_III_keys, parent_folder + "waveform_III_keyframes.csv");
+			std::async(saveKeyframesToCSV, waveform_IV_keys,  parent_folder + "waveform_IV_keyframes.csv");
+			std::async(saveKeyframesToCSV, waveform_V_keys,   parent_folder + "waveform_V_keyframes.csv");
 
 			recordingActive = false;
 			keyframes.clear();
@@ -257,6 +261,8 @@ struct ToKeyframes : Module {
 			resetKfData();
 		}
 		prevSaveVoltage = inputs[SAVE_INPUT].getVoltage();
+
+		
 	}
 };
 
