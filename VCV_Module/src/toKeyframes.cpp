@@ -23,7 +23,7 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std
 	for (size_t frame = 0; frame < kyfrms.size(); frame++) {
 		for (size_t track = 0; track < kyfrms[0].size(); track++) {
 			csvStream << std::to_string( kyfrms[frame][track] );
-			if(track != kyfrms[0].size() - 1){
+			if(track < kyfrms[0].size() - 1){
 				csvStream << ",";
 			}
 		}
@@ -31,12 +31,12 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std
 		csvStream << "\n";
 	}
 
-	std::string csvString = csvStream.str();
-
-	std::fstream file;
-   	file.open(filePath, std::ios::app | std::ios::binary);
-   	file.write(csvStream.str().c_str(),  sizeof( csvStream.str().c_str() ));
-   	file.close();
+	// Create or open the CSV file and write the CSV data
+	std::ofstream csvFile(filePath);
+	if (csvFile.is_open()) {
+		csvFile << csvStream.str();
+		csvFile.close();
+	}
 
 	return;
 }
@@ -164,6 +164,26 @@ struct ToKeyframes : Module {
 		currWfKeyframe_V   = {std::vector<float>(waveformResolution, 0.f)};
 	}
 
+	void saveKfsToDisk(std::string parent_folder){
+		// TODO: maybe spawn one async thread that saves all these files
+		// TODO: pass by ref and then make sure kf data is not erased or manipulated until done instead of pass by value
+		std::async(saveKeyframesToCSV, keyframes,         parent_folder + "keyframes.csv");
+		std::async(saveKeyframesToCSV, waveform_I_keys,   parent_folder + "waveform_I_keyframes.csv");
+		std::async(saveKeyframesToCSV, waveform_II_keys,  parent_folder + "waveform_II_keyframes.csv");
+		std::async(saveKeyframesToCSV, waveform_III_keys, parent_folder + "waveform_III_keyframes.csv");
+		std::async(saveKeyframesToCSV, waveform_IV_keys,  parent_folder + "waveform_IV_keyframes.csv");
+		std::async(saveKeyframesToCSV, waveform_V_keys,   parent_folder + "waveform_V_keyframes.csv");
+
+		keyframes.clear();
+		waveform_I_keys.clear();
+		waveform_II_keys.clear();
+		waveform_III_keys.clear();
+		waveform_IV_keys.clear();
+		waveform_V_keys.clear();
+		
+		resetKfData();
+	}
+
 	void process(const ProcessArgs& args) override {
 
 		// activate recording if the RECORD input is triggered
@@ -173,9 +193,17 @@ struct ToKeyframes : Module {
 		}
 		prevStartVoltage = inputs[START_INPUT].getVoltage();
 
-		// deactivate recording and clear keyframes of the STOP input is triggered
+		// deactivate recording and clear keyframes of the ABORT input is triggered
 		if(prevStopVoltage == 0.f && inputs[ABORT_INPUT].getVoltage() > prevStopVoltage){
 			keyframes.clear();
+			waveform_I_keys.clear();
+			waveform_II_keys.clear();
+			waveform_III_keys.clear();
+			waveform_IV_keys.clear();
+			waveform_V_keys.clear();
+
+			resetKfData();
+
 			recordingActive = false;
 		}
 		prevStopVoltage = inputs[ABORT_INPUT].getVoltage();
@@ -208,11 +236,16 @@ struct ToKeyframes : Module {
 
 			if (
 				// TODO: this should only happen once per visual keyframe, it happens twice and the debug msg causes a float error for some reason
-			 	currFrameInKf % (int64_t)samplesInWavelength == 0 &&
+			 	(currFrameInKf % (int64_t)samplesInWavelength) == 0 &&
 			 	float(framesInKeyframe - currFrameInKf) < (samplesInWavelength * 2.f) &&
 			 	float(framesInKeyframe - currFrameInKf) > samplesInWavelength
 			){
-			 	DEBUG("wave");
+			 	// DEBUG("		wave");
+				// DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
+				// DEBUG("		hz: %f", hz);
+				// DEBUG("		samples in wavelength: %f", samplesInWavelength);
+				// DEBUG("		current frame within keyframe: %ld", currFrameInKf);
+				// DEBUG("		total frames within keyframe: %ld", framesInKeyframe);
 			}
 			// currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
 			
@@ -260,17 +293,14 @@ struct ToKeyframes : Module {
 			auto parent_folder = APP->patch->path.substr(0, APP->patch->path.rfind("/") + 1);
 			DEBUG("Saving Data to \"%s\"", parent_folder.c_str());
 
-			std::async(saveKeyframesToCSV, keyframes,         parent_folder + "keyframes.csv");
-			std::async(saveKeyframesToCSV, waveform_I_keys,   parent_folder + "waveform_I_keyframes.csv");
-			std::async(saveKeyframesToCSV, waveform_II_keys,  parent_folder + "waveform_II_keyframes.csv");
-			std::async(saveKeyframesToCSV, waveform_III_keys, parent_folder + "waveform_III_keyframes.csv");
-			std::async(saveKeyframesToCSV, waveform_IV_keys,  parent_folder + "waveform_IV_keyframes.csv");
-			std::async(saveKeyframesToCSV, waveform_V_keys,   parent_folder + "waveform_V_keyframes.csv");
+			DEBUG("rows in keyframes %ld", keyframes.size());
+			if( keyframes.size() > 0 ){
+				DEBUG("cols in keyframes %ld", keyframes[0].size());
+			}
+			
+			saveKfsToDisk(parent_folder);
 
 			recordingActive = false;
-			keyframes.clear();
-
-			resetKfData();
 		}
 		prevSaveVoltage = inputs[SAVE_INPUT].getVoltage();
 
