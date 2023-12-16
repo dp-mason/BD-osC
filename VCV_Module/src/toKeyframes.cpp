@@ -43,8 +43,6 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std
 
 struct ToKeyframes : Module {
 
-	
-
 	// TODO: connect the keyframeRate up with the appropriate param input
 	int64_t keyframeRate = 24; // stored in this data type so that there is less casting per process call
 	int64_t startFrame = 0; // this value is set when the RECORD input is triggered
@@ -87,26 +85,26 @@ struct ToKeyframes : Module {
 		START_INPUT,
 		ABORT_INPUT,
 		SAVE_INPUT,
-		INPUT_2_INPUT,
 		WAVE_I_INPUT,
-		INPUT_3_INPUT,
-		INPUT_1_INPUT,
 		WAVE_II_INPUT,
-		INPUT_4_INPUT,
-		VOCT_I_INPUT,
-		VOCT_II_INPUT,
-		INPUT_6_INPUT,
-		INPUT_5_INPUT,
 		WAVE_III_INPUT,
-		INPUT_7_INPUT,
 		WAVE_IV_INPUT,
 		WAVE_V_INPUT,
+		VOCT_I_INPUT,
+		VOCT_II_INPUT,
 		VOCT_III_INPUT,
 		VOCT_IV_INPUT,
 		VOCT_V_INPUT,
+		INPUT_1_INPUT,
+		INPUT_2_INPUT,
+		INPUT_3_INPUT,
+		INPUT_4_INPUT,
+		INPUT_5_INPUT,
+		INPUT_6_INPUT,
+		INPUT_7_INPUT,
+		INPUT_8_INPUT,
 		INPUT_9_INPUT,
 		INPUT_10_INPUT,
-		INPUT_8_INPUT,
 		INPUT_11_INPUT,
 		INPUT_12_INPUT,
 		INPUT_13_INPUT,
@@ -183,7 +181,8 @@ struct ToKeyframes : Module {
 		prevStopVoltage = inputs[ABORT_INPUT].getVoltage();
 		
 		if(recordingActive) {
-			int framesInKeyframe = (int64_t)args.sampleRate / keyframeRate; // calculated every frame bc sample rate can change during execution
+			// TODO: maybe this should be calles "samplesInKeyframe" for understandability
+			int64_t framesInKeyframe = (int64_t)args.sampleRate / keyframeRate; // calculated every frame bc sample rate can change during execution
 			int64_t currFrameInKf = (args.frame - startFrame) % framesInKeyframe;
 			int fractionOfAvg = ( 1.0 / float(framesInKeyframe) );
 			
@@ -198,12 +197,24 @@ struct ToKeyframes : Module {
 			int64_t currWfSample = currFrameInKf / framesInWfSample;
 
 			// TODO: associate the construction of the waveform keyframes with their associated v/oct inputs
-			currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
 			currWfKeyframe_II[currWfSample]  += (1.0 / float(framesInWfSample)) * inputs[WAVE_II_INPUT].getVoltage();
 			currWfKeyframe_III[currWfSample] += (1.0 / float(framesInWfSample)) * inputs[WAVE_III_INPUT].getVoltage();
 			currWfKeyframe_IV[currWfSample]  += (1.0 / float(framesInWfSample)) * inputs[WAVE_IV_INPUT].getVoltage();
 			currWfKeyframe_V[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_V_INPUT].getVoltage();
 
+			// use v/oct to capture a window if the signal the length of 1 wavelength
+			float hz = 55.0 * pow(2.0, (inputs[VOCT_I_INPUT].getVoltage() + 0.25)); // convert from v/oct to hertz
+			float samplesInWavelength = args.sampleRate / hz; // determine the number of audio samples in one wavelength of this wave
+
+			if (
+				currFrameInKf % (int64_t)samplesInWavelength == 0 &&
+				float(framesInKeyframe - currFrameInKf) < samplesInWavelength * 2.0 &&
+				float(framesInKeyframe - currFrameInKf) > samplesInWavelength
+			){
+				DEBUG("Wavelength begin recording: This should print once per keyframe");
+			}
+			currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
+			
 			// if it is determined that this is the last audio frame of the keyframe, save the values to the list of keyframes 
 			if(currFrameInKf == 0){
 				// output the value of the keyframe
