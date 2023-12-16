@@ -203,17 +203,18 @@ struct ToKeyframes : Module {
 			currWfKeyframe_V[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_V_INPUT].getVoltage();
 
 			// use v/oct to capture a window if the signal the length of 1 wavelength
-			float hz = 55.0 * pow(2.0, (inputs[VOCT_I_INPUT].getVoltage() + 0.25)); // convert from v/oct to hertz
+			float hz = 55.f * pow(2.f, (inputs[VOCT_I_INPUT].getVoltage() + 0.25f)); // convert from v/oct to hertz
 			float samplesInWavelength = args.sampleRate / hz; // determine the number of audio samples in one wavelength of this wave
 
 			if (
-				currFrameInKf % (int64_t)samplesInWavelength == 0 &&
-				float(framesInKeyframe - currFrameInKf) < samplesInWavelength * 2.0 &&
-				float(framesInKeyframe - currFrameInKf) > samplesInWavelength
+				// TODO: this should only happen once per visual keyframe, it happens twice and the debug msg causes a float error for some reason
+			 	currFrameInKf % (int64_t)samplesInWavelength == 0 &&
+			 	float(framesInKeyframe - currFrameInKf) < (samplesInWavelength * 2.f) &&
+			 	float(framesInKeyframe - currFrameInKf) > samplesInWavelength
 			){
-				DEBUG("Wavelength begin recording: This should print once per keyframe");
+			 	DEBUG("wave");
 			}
-			currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
+			// currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
 			
 			// if it is determined that this is the last audio frame of the keyframe, save the values to the list of keyframes 
 			if(currFrameInKf == 0){
