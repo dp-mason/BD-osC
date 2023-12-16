@@ -151,7 +151,7 @@ struct ToKeyframes : Module {
 
 	// resets the average values of the inputs that record keyframes of the average value rather than a straight up sample
 	// resets the recorded waveforms to zero
-	void resetKfData(){
+	void resetCurrKfData(){
 		input_9_avg  = 0.0;
 		input_10_avg = 0.0;
 		input_11_avg = 0.0;
@@ -164,6 +164,15 @@ struct ToKeyframes : Module {
 		currWfKeyframe_V   = {std::vector<float>(waveformResolution, 0.f)};
 	}
 
+	void clearStoredKfs(){
+		keyframes.clear();
+		waveform_I_keys.clear();
+		waveform_II_keys.clear();
+		waveform_III_keys.clear();
+		waveform_IV_keys.clear();
+		waveform_V_keys.clear();
+	}
+
 	void saveKfsToDisk(std::string parent_folder){
 		// TODO: maybe spawn one async thread that saves all these files
 		// TODO: pass by ref and then make sure kf data is not erased or manipulated until done instead of pass by value
@@ -172,16 +181,7 @@ struct ToKeyframes : Module {
 		std::async(saveKeyframesToCSV, waveform_II_keys,  parent_folder + "waveform_II_keyframes.csv");
 		std::async(saveKeyframesToCSV, waveform_III_keys, parent_folder + "waveform_III_keyframes.csv");
 		std::async(saveKeyframesToCSV, waveform_IV_keys,  parent_folder + "waveform_IV_keyframes.csv");
-		std::async(saveKeyframesToCSV, waveform_V_keys,   parent_folder + "waveform_V_keyframes.csv");
-
-		keyframes.clear();
-		waveform_I_keys.clear();
-		waveform_II_keys.clear();
-		waveform_III_keys.clear();
-		waveform_IV_keys.clear();
-		waveform_V_keys.clear();
-		
-		resetKfData();
+		std::async(saveKeyframesToCSV, waveform_V_keys,   parent_folder + "waveform_V_keyframes.csv");		
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -195,14 +195,8 @@ struct ToKeyframes : Module {
 
 		// deactivate recording and clear keyframes of the ABORT input is triggered
 		if(prevStopVoltage == 0.f && inputs[ABORT_INPUT].getVoltage() > prevStopVoltage){
-			keyframes.clear();
-			waveform_I_keys.clear();
-			waveform_II_keys.clear();
-			waveform_III_keys.clear();
-			waveform_IV_keys.clear();
-			waveform_V_keys.clear();
-
-			resetKfData();
+			clearStoredKfs();
+			resetCurrKfData();
 
 			recordingActive = false;
 		}
@@ -222,7 +216,7 @@ struct ToKeyframes : Module {
 
 			// modify the current waveform keyframe
 			int64_t framesInWfSample = (framesInKeyframe / waveformResolution);
-			int64_t currWfSample = currFrameInKf / framesInWfSample;
+			int64_t currWfSample = currFrameInKf / framesInWfSample; 
 
 			// TODO: associate the construction of the waveform keyframes with their associated v/oct inputs
 			currWfKeyframe_II[currWfSample]  += (1.0 / float(framesInWfSample)) * inputs[WAVE_II_INPUT].getVoltage();
@@ -231,21 +225,23 @@ struct ToKeyframes : Module {
 			currWfKeyframe_V[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_V_INPUT].getVoltage();
 
 			// use v/oct to capture a window if the signal the length of 1 wavelength
-			float hz = 55.f * pow(2.f, (inputs[VOCT_I_INPUT].getVoltage() + 0.25f)); // convert from v/oct to hertz
+			float hz = (440.f / 2.f) * pow(2.f, (inputs[VOCT_I_INPUT].getVoltage() + 0.25)); // convert from v/oct to hertz
 			float samplesInWavelength = args.sampleRate / hz; // determine the number of audio samples in one wavelength of this wave
 
 			if (
 				// TODO: this should only happen once per visual keyframe, it happens twice and the debug msg causes a float error for some reason
-			 	(currFrameInKf % (int64_t)samplesInWavelength) == 0 &&
-			 	float(framesInKeyframe - currFrameInKf) < (samplesInWavelength * 2.f) &&
-			 	float(framesInKeyframe - currFrameInKf) > samplesInWavelength
+			 	// (currFrameInKf % (int64_t)samplesInWavelength) == 0 &&
+			 	// float(framesInKeyframe - currFrameInKf) < (samplesInWavelength * 2.f) &&
+			 	// float(framesInKeyframe - currFrameInKf) > samplesInWavelength
+				currFrameInKf == 0
 			){
-			 	// DEBUG("		wave");
-				// DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
-				// DEBUG("		hz: %f", hz);
-				// DEBUG("		samples in wavelength: %f", samplesInWavelength);
-				// DEBUG("		current frame within keyframe: %ld", currFrameInKf);
-				// DEBUG("		total frames within keyframe: %ld", framesInKeyframe);
+			 	DEBUG("		wave");
+				DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
+				DEBUG("		hz: %f", hz);
+				DEBUG("		sample rate: %f", args.sampleRate);
+				DEBUG("		samples in wavelength: %f", samplesInWavelength);
+				DEBUG("		current frame within keyframe: %ld", currFrameInKf);
+				DEBUG("		total frames within keyframe: %ld", framesInKeyframe);
 			}
 			// currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
 			
@@ -280,7 +276,7 @@ struct ToKeyframes : Module {
 				waveform_V_keys.push_back(currWfKeyframe_V);
 
 				// prepare for a new keyframe
-				resetKfData();
+				resetCurrKfData();
 
 				DEBUG("number of keyframes is %ld", keyframes.size());
 
@@ -299,7 +295,10 @@ struct ToKeyframes : Module {
 			}
 			
 			saveKfsToDisk(parent_folder);
-
+			
+			clearStoredKfs();
+			resetCurrKfData();
+			
 			recordingActive = false;
 		}
 		prevSaveVoltage = inputs[SAVE_INPUT].getVoltage();
