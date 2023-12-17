@@ -60,21 +60,27 @@ struct ToKeyframes : Module {
 	float input_11_avg = 0.f;
 	float input_12_avg = 0.f;
 
-	std::vector<std::vector<float>> waveform_I_keys;
-	std::vector<std::vector<float>> waveform_II_keys;
-	std::vector<std::vector<float>> waveform_III_keys;
-	std::vector<std::vector<float>> waveform_IV_keys;
-	std::vector<std::vector<float>> waveform_V_keys;
-
 	// Determines the resolution of a visualized waveform
 	// TODO: connect the waveformResolution up with the appropriate param input
 	const int64_t waveformResolution = 64;
 
-	std::vector<float> currWfKeyframe_I{std::vector<float>(waveformResolution, 0.f)};
-	std::vector<float> currWfKeyframe_II{std::vector<float>(waveformResolution, 0.f)};
-	std::vector<float> currWfKeyframe_III{std::vector<float>(waveformResolution, 0.f)};
-	std::vector<float> currWfKeyframe_IV{std::vector<float>(waveformResolution, 0.f)};
-	std::vector<float> currWfKeyframe_V{std::vector<float>(waveformResolution, 0.f)};
+    // Set the dimensions
+    int numWfs = 5;
+
+	// Define a 2D vector representing the current state of all the waveforms
+    std::vector<std::vector<float>> currWaveformState = std::vector<std::vector<float>> (
+		numWfs, 
+		std::vector<float> (waveformResolution, 0.f)
+	);
+
+	// Define a 3D vector representing the visual keyframes of the waves over time
+    std::vector<std::vector<std::vector<float>>> waveformKeyframes = std::vector<std::vector<std::vector<float>>>(
+		numWfs, 
+		std::vector<std::vector<float>>(
+			waveformResolution,
+			std::vector<float>(waveformResolution, 0.f)
+		)
+	);
 
 	enum ParamId {
 		FRAME_RATE_PARAM,
@@ -157,31 +163,25 @@ struct ToKeyframes : Module {
 		input_11_avg = 0.0;
 		input_12_avg = 0.0;
 
-		currWfKeyframe_I   = {std::vector<float>(waveformResolution, 0.f)};
-		currWfKeyframe_II  = {std::vector<float>(waveformResolution, 0.f)};
-		currWfKeyframe_III = {std::vector<float>(waveformResolution, 0.f)};
-		currWfKeyframe_IV  = {std::vector<float>(waveformResolution, 0.f)}; 
-		currWfKeyframe_V   = {std::vector<float>(waveformResolution, 0.f)};
+		for(int currWave = 0; currWave < numWfs; currWave++){
+			currWaveformState[currWave] = {std::vector<float>(waveformResolution, 0.f)};
+		}
 	}
 
 	void clearStoredKfs(){
 		keyframes.clear();
-		waveform_I_keys.clear();
-		waveform_II_keys.clear();
-		waveform_III_keys.clear();
-		waveform_IV_keys.clear();
-		waveform_V_keys.clear();
+
+		waveformKeyframes.clear();
 	}
 
 	void saveKfsToDisk(std::string parent_folder){
 		// TODO: maybe spawn one async thread that saves all these files
 		// TODO: pass by ref and then make sure kf data is not erased or manipulated until done instead of pass by value
-		std::async(saveKeyframesToCSV, keyframes,         parent_folder + "keyframes.csv");
-		std::async(saveKeyframesToCSV, waveform_I_keys,   parent_folder + "waveform_I_keyframes.csv");
-		std::async(saveKeyframesToCSV, waveform_II_keys,  parent_folder + "waveform_II_keyframes.csv");
-		std::async(saveKeyframesToCSV, waveform_III_keys, parent_folder + "waveform_III_keyframes.csv");
-		std::async(saveKeyframesToCSV, waveform_IV_keys,  parent_folder + "waveform_IV_keyframes.csv");
-		std::async(saveKeyframesToCSV, waveform_V_keys,   parent_folder + "waveform_V_keyframes.csv");		
+		std::async(saveKeyframesToCSV, keyframes, parent_folder + "keyframes.csv");
+		
+		for(int currWave = 0; currWave < numWfs; currWave++){
+			std::async(saveKeyframesToCSV, waveformKeyframes[currWave], parent_folder + "waveform_" + std::to_string(currWave) + "_keyframes.csv");	
+		}	
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -219,10 +219,10 @@ struct ToKeyframes : Module {
 			int64_t currWfSample = currFrameInKf / framesInWfSample; 
 
 			// TODO: associate the construction of the waveform keyframes with their associated v/oct inputs
-			currWfKeyframe_II[currWfSample]  += (1.0 / float(framesInWfSample)) * inputs[WAVE_II_INPUT].getVoltage();
-			currWfKeyframe_III[currWfSample] += (1.0 / float(framesInWfSample)) * inputs[WAVE_III_INPUT].getVoltage();
-			currWfKeyframe_IV[currWfSample]  += (1.0 / float(framesInWfSample)) * inputs[WAVE_IV_INPUT].getVoltage();
-			currWfKeyframe_V[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_V_INPUT].getVoltage();
+			// currWfKeyframe_II[currWfSample]  += (1.0 / float(framesInWfSample)) * inputs[WAVE_II_INPUT].getVoltage();
+			// currWfKeyframe_III[currWfSample] += (1.0 / float(framesInWfSample)) * inputs[WAVE_III_INPUT].getVoltage();
+			// currWfKeyframe_IV[currWfSample]  += (1.0 / float(framesInWfSample)) * inputs[WAVE_IV_INPUT].getVoltage();
+			// currWfKeyframe_V[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_V_INPUT].getVoltage();
 
 			// use v/oct to capture a window if the signal the length of 1 wavelength
 			float hz = (440.f / 2.f) * pow(2.f, (inputs[VOCT_I_INPUT].getVoltage() + 0.25)); // convert from v/oct to hertz
@@ -276,11 +276,7 @@ struct ToKeyframes : Module {
 
 				keyframes.push_back(thisKeyframe);
 
-				waveform_I_keys.push_back(currWfKeyframe_I);
-				waveform_II_keys.push_back(currWfKeyframe_II);
-				waveform_III_keys.push_back(currWfKeyframe_III);
-				waveform_IV_keys.push_back(currWfKeyframe_IV);
-				waveform_V_keys.push_back(currWfKeyframe_V);
+				waveformKeyframes.push_back(currWaveformState);					
 
 				// prepare for a new keyframe
 				resetCurrKfData();
