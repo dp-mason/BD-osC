@@ -229,19 +229,26 @@ struct ToKeyframes : Module {
 			float samplesInWavelength = args.sampleRate / hz; // determine the number of audio samples in one wavelength of this wave
 
 			if (
-				// TODO: this should only happen once per visual keyframe, it happens twice and the debug msg causes a float error for some reason
-			 	// (currFrameInKf % (int64_t)samplesInWavelength) == 0 &&
-			 	// float(framesInKeyframe - currFrameInKf) < (samplesInWavelength * 2.f) &&
-			 	// float(framesInKeyframe - currFrameInKf) > samplesInWavelength
-				currFrameInKf == 0
+				// if the wavelength is less than the freq of the visual keyframe, capture the latest full wavelength in the visual keyframe
+			 	(
+				 (args.frame % (int64_t)samplesInWavelength) == 0 &&
+			 	 float(framesInKeyframe - currFrameInKf) < (samplesInWavelength * 2.f) &&
+			 	 float(framesInKeyframe - currFrameInKf) > samplesInWavelength
+				)
+				||
+				// if the wavelength is longer than the frequency of the visual frame rate, use different conditions
+				(
+				 samplesInWavelength > framesInKeyframe && 
+				 args.frame % (int64_t)samplesInWavelength == 0
+				)
 			){
-			 	DEBUG("		wave");
-				DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
-				DEBUG("		hz: %f", hz);
-				DEBUG("		sample rate: %f", args.sampleRate);
-				DEBUG("		samples in wavelength: %f", samplesInWavelength);
-				DEBUG("		current frame within keyframe: %ld", currFrameInKf);
-				DEBUG("		total frames within keyframe: %ld", framesInKeyframe);
+			 	// DEBUG("		wave");
+				// DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
+				// DEBUG("		hz: %f", hz);
+				// DEBUG("		sample rate: %f", args.sampleRate);
+				// DEBUG("		samples in wavelength: %f", samplesInWavelength);
+				// DEBUG("		current frame within keyframe: %ld", currFrameInKf);
+				// DEBUG("		total frames within keyframe: %ld", framesInKeyframe);
 			}
 			// currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
 			
