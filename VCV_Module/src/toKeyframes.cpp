@@ -41,6 +41,42 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std
 	return;
 }
 
+// Function to convert a vector of floats to a CSV string
+void saveWfKeyframesToCSV(const std::vector<std::vector<std::vector<float>>>& wfKyfrms, const std::string parentFolderPath) {
+	
+	if(wfKyfrms.size() == 0) {
+		return;
+	}
+
+	std::vector<std::ostringstream> csvStreams;
+	csvStreams.resize(wfKyfrms[0].size());
+
+	for (size_t kframe = 0; kframe < wfKyfrms.size(); kframe++) {
+		for (size_t wave = 0; wave < wfKyfrms[0].size(); wave++) {
+			for (size_t sample = 0; sample < wfKyfrms[0][0].size(); sample++) {
+				csvStreams[wave] << std::to_string( wfKyfrms[kframe][wave][sample] );
+				//csvStreams[wave] << std::to_string( 0.0 );
+				if(sample < wfKyfrms[0][0].size() - 1){
+					csvStreams[wave] << ",";
+				}
+			}
+
+			csvStreams[wave] << "\n";
+		}
+	}
+
+	// Create or open the CSV file and write the CSV data
+	for (int wave = 0; wave < int(wfKyfrms[0].size()); wave++) {
+		std::ofstream csvFile(parentFolderPath + "wave_" + std::to_string(wave + 1) + "_keyframes.csv");
+		if (csvFile.is_open()) {
+			csvFile << csvStreams[wave].str();
+			csvFile.close();
+		}
+	}
+
+	return;
+}
+
 struct ToKeyframes : Module {
 
 	// TODO: connect the keyframeRate up with the appropriate param input
@@ -67,6 +103,8 @@ struct ToKeyframes : Module {
     // Set the dimensions
     int numWfs = 5;
 
+	std::vector<bool> wfRecordState = std::vector<bool>(numWfs, false);
+
 	// Define a 2D vector representing the current state of all the waveforms
     std::vector<std::vector<float>> currWaveformState = std::vector<std::vector<float>> (
 		numWfs, 
@@ -75,9 +113,9 @@ struct ToKeyframes : Module {
 
 	// Define a 3D vector representing the visual keyframes of the waves over time
     std::vector<std::vector<std::vector<float>>> waveformKeyframes = std::vector<std::vector<std::vector<float>>>(
-		numWfs, 
+		1, 
 		std::vector<std::vector<float>>(
-			waveformResolution,
+			numWfs,
 			std::vector<float>(waveformResolution, 0.f)
 		)
 	);
@@ -179,9 +217,7 @@ struct ToKeyframes : Module {
 		// TODO: pass by ref and then make sure kf data is not erased or manipulated until done instead of pass by value
 		std::async(saveKeyframesToCSV, keyframes, parent_folder + "keyframes.csv");
 		
-		for(int currWave = 0; currWave < numWfs; currWave++){
-			std::async(saveKeyframesToCSV, waveformKeyframes[currWave], parent_folder + "waveform_" + std::to_string(currWave) + "_keyframes.csv");	
-		}	
+		std::async(saveWfKeyframesToCSV, waveformKeyframes, parent_folder);	
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -227,28 +263,43 @@ struct ToKeyframes : Module {
 			// use v/oct to capture a window if the signal the length of 1 wavelength
 			float hz = (440.f / 2.f) * pow(2.f, (inputs[VOCT_I_INPUT].getVoltage() + 0.25)); // convert from v/oct to hertz
 			float samplesInWavelength = args.sampleRate / hz; // determine the number of audio samples in one wavelength of this wave
+			float samplesInWfSample = (samplesInWavelength / waveformResolution);
+			float sampleContribAmt =  1 / (samplesInWavelength / waveformResolution);
 
 			if (
 				// if the wavelength is less than the freq of the visual keyframe, capture the latest full wavelength in the visual keyframe
 			 	(
-				 (args.frame % (int64_t)samplesInWavelength) == 0 &&
 			 	 float(framesInKeyframe - currFrameInKf) < (samplesInWavelength * 2.f) &&
 			 	 float(framesInKeyframe - currFrameInKf) > samplesInWavelength
 				)
 				||
 				// if the wavelength is longer than the frequency of the visual frame rate, use different conditions
 				(
-				 samplesInWavelength > framesInKeyframe && 
-				 args.frame % (int64_t)samplesInWavelength == 0
+				 samplesInWavelength > framesInKeyframe
 				)
 			){
-			 	// DEBUG("		wave");
-				// DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
-				// DEBUG("		hz: %f", hz);
-				// DEBUG("		sample rate: %f", args.sampleRate);
-				// DEBUG("		samples in wavelength: %f", samplesInWavelength);
-				// DEBUG("		current frame within keyframe: %ld", currFrameInKf);
-				// DEBUG("		total frames within keyframe: %ld", framesInKeyframe);
+
+				if(args.frame % (int64_t)samplesInWavelength == 0){
+					wfRecordState[0] = true;
+					DEBUG("		wave");
+					DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
+					DEBUG("		hz: %f", hz);
+					DEBUG("		sample rate: %f", args.sampleRate);
+					DEBUG("		samples in wavelength: %f", samplesInWavelength);
+					DEBUG("		samples in visual wavelength sample: %f", samplesInWfSample);
+					DEBUG("		sample contrib amount: %f", sampleContribAmt);
+					DEBUG("		current frame within keyframe: %ld", currFrameInKf);
+					DEBUG("		total frames within keyframe: %ld", framesInKeyframe);
+				}
+				for(int wave = 0; wave < numWfs; wave++){
+					if(wfRecordState[wave]){
+						int sample_index = (args.frame % (int64_t)samplesInWavelength) / samplesInWfSample;
+						currWaveformState[wave][sample_index] += sampleContribAmt * inputs[WAVE_I_INPUT].getVoltage();
+					}
+				}
+			}
+			else {
+				wfRecordState[0] = false;
 			}
 			// currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
 			
