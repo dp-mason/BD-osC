@@ -98,7 +98,7 @@ struct ToKeyframes : Module {
 
 	// Determines the resolution of a visualized waveform
 	// TODO: connect the waveformResolution up with the appropriate param input
-	const int64_t waveformResolution = 64;
+	const int64_t maxWfResolution = 256;
 
     // Set the dimensions
     int numWfs = 5;
@@ -108,7 +108,7 @@ struct ToKeyframes : Module {
 	// Define a 2D vector representing the current state of all the waveforms
     std::vector<std::vector<float>> currWaveformState = std::vector<std::vector<float>> (
 		numWfs, 
-		std::vector<float> (waveformResolution, 0.f)
+		std::vector<float> (maxWfResolution, 0.f)
 	);
 
 	// Define a 3D vector representing the visual keyframes of the waves over time
@@ -116,7 +116,7 @@ struct ToKeyframes : Module {
 		1, 
 		std::vector<std::vector<float>>(
 			numWfs,
-			std::vector<float>(waveformResolution, 0.f)
+			std::vector<float>(maxWfResolution, 0.f)
 		)
 	);
 
@@ -202,7 +202,7 @@ struct ToKeyframes : Module {
 		input_12_avg = 0.0;
 
 		for(int currWave = 0; currWave < numWfs; currWave++){
-			currWaveformState[currWave] = {std::vector<float>(waveformResolution, 0.f)};
+			currWaveformState[currWave] = {std::vector<float>(maxWfResolution, -99.f)};
 		}
 	}
 
@@ -239,6 +239,7 @@ struct ToKeyframes : Module {
 		prevStopVoltage = inputs[ABORT_INPUT].getVoltage();
 		
 		if(recordingActive) {
+			// TODO: this way for tracking the currframe in kf will eventually be out of sync over time, prob not relevant, but worth noting
 			// TODO: maybe this should be calles "samplesInKeyframe" for understandability
 			int64_t framesInKeyframe = (int64_t)args.sampleRate / keyframeRate; // calculated every frame bc sample rate can change during execution
 			int64_t currFrameInKf = (args.frame - startFrame) % framesInKeyframe;
@@ -251,7 +252,7 @@ struct ToKeyframes : Module {
 			input_12_avg += fractionOfAvg * inputs[INPUT_12_INPUT].getVoltage();
 
 			// modify the current waveform keyframe
-			int64_t framesInWfSample = (framesInKeyframe / waveformResolution);
+			int64_t framesInWfSample = (framesInKeyframe / maxWfResolution);
 			int64_t currWfSample = currFrameInKf / framesInWfSample; 
 
 			// TODO: associate the construction of the waveform keyframes with their associated v/oct inputs
@@ -261,42 +262,44 @@ struct ToKeyframes : Module {
 			// currWfKeyframe_V[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_V_INPUT].getVoltage();
 
 			// use v/oct to capture a window if the signal the length of 1 wavelength
-			float hz = (440.f / 2.f) * pow(2.f, (inputs[VOCT_I_INPUT].getVoltage() + 0.25)); // convert from v/oct to hertz
+			float hz                  = (440.f / 2.f) * pow(2.f, (inputs[VOCT_I_INPUT].getVoltage() + 0.25)); // convert from v/oct to hertz
 			float samplesInWavelength = args.sampleRate / hz; // determine the number of audio samples in one wavelength of this wave
-			float samplesInWfSample = (samplesInWavelength / waveformResolution);
-			float sampleContribAmt =  1 / (samplesInWavelength / waveformResolution);
+			float samplesInWfSample   = (samplesInWavelength / maxWfResolution);
+
+
 
 			if (
 				// if the wavelength is less than the freq of the visual keyframe, capture the latest full wavelength in the visual keyframe
 			 	(
-			 	 float(framesInKeyframe - currFrameInKf) < (samplesInWavelength * 2.f) &&
-			 	 float(framesInKeyframe - currFrameInKf) > samplesInWavelength
+			 	 float(framesInKeyframe - currFrameInKf) < (samplesInWavelength * 3.f) &&
+			 	 float(framesInKeyframe - currFrameInKf) >  samplesInWavelength
 				)
-				||
-				// if the wavelength is longer than the frequency of the visual frame rate, use different conditions
-				(
-				 samplesInWavelength > framesInKeyframe
-				)
+				// ||
+				// // if the wavelength is longer than the frequency of the visual frame rate, use different conditions
+				// (
+				//  samplesInWavelength > framesInKeyframe
+				// )
 			){
-
-				if(args.frame % (int64_t)samplesInWavelength == 0){
-					wfRecordState[0] = true;
-					DEBUG("		wave");
+				if( args.frame % int64_t(samplesInWavelength) == 0){
+					wfRecordState[0] = !wfRecordState[0]; // toggle the recording state so only one wavelength is recorded
+					DEBUG("		WAVE");
 					DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
 					DEBUG("		hz: %f", hz);
 					DEBUG("		sample rate: %f", args.sampleRate);
 					DEBUG("		samples in wavelength: %f", samplesInWavelength);
-					DEBUG("		samples in visual wavelength sample: %f", samplesInWfSample);
-					DEBUG("		sample contrib amount: %f", sampleContribAmt);
 					DEBUG("		current frame within keyframe: %ld", currFrameInKf);
 					DEBUG("		total frames within keyframe: %ld", framesInKeyframe);
+					DEBUG("		record state: %s", wfRecordState[0] ? "true" : "false");
 				}
-				for(int wave = 0; wave < numWfs; wave++){
-					if(wfRecordState[wave]){
-						int sample_index = (args.frame % (int64_t)samplesInWavelength) / samplesInWfSample;
-						currWaveformState[wave][sample_index] += sampleContribAmt * inputs[WAVE_I_INPUT].getVoltage();
-					}
+				
+				if(wfRecordState[0]){
+					size_t sample_index = size_t(fmod(float(args.frame), samplesInWavelength));
+					
+					currWaveformState[0][sample_index] = inputs[WAVE_I_INPUT].getVoltage(); // float(sample_index);
+					// Below is a line used to check the phase of the waveform captured in the visual keyframe of the wave 
+					//currWaveformState[0][sample_index] = (inputs[WAVE_I_INPUT].getVoltage() > 3.0) ? 999999.0 : 0.0;
 				}
+
 			}
 			else {
 				wfRecordState[0] = false;
