@@ -245,16 +245,16 @@ struct ToKeyframes : Module {
 			// 		 but when I tried to get it to write every value once every once in a while one single visual 
 			//       sample in the visual keyframe would be missed, this solves that for now, probably wont be an issue
 
-			if( args.frame % int64_t(samplesInWavelength) == 0){
-				DEBUG("		WAVE");
-				DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
-				DEBUG("		hz: %f", voctToHz(voctCV));
-				DEBUG("		sample rate: %f", args.sampleRate);
-				DEBUG("		samples in wavelength: %f", samplesInWavelength);
-				DEBUG("		current frame within keyframe: %ld", currFrameInKf);
-				DEBUG("		total frames within keyframe: %ld", framesInKf);
-				DEBUG("		record state: %s", wfRecordState[0] ? "true" : "false");
-			}
+			// if( args.frame % int64_t(samplesInWavelength) == 0){
+			// 	DEBUG("		WAVE");
+			// 	DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
+			// 	DEBUG("		hz: %f", voctToHz(voctCV));
+			// 	DEBUG("		sample rate: %f", args.sampleRate);
+			// 	DEBUG("		samples in wavelength: %f", samplesInWavelength);
+			// 	DEBUG("		current frame within keyframe: %ld", currFrameInKf);
+			// 	DEBUG("		total frames within keyframe: %ld", framesInKf);
+			// 	DEBUG("		record state: %s", wfRecordState[0] ? "true" : "false");
+			// }
 			
 			size_t sample_index = size_t( round(fmod(float(args.frame), samplesInWavelength)) );
 			
@@ -300,7 +300,11 @@ struct ToKeyframes : Module {
 
 			// process the waveform inputs
 			processWf(args, currWfKframeState[0], inputs[WAVE_I_INPUT].getVoltage(), inputs[VOCT_I_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
-			
+			processWf(args, currWfKframeState[1], inputs[WAVE_II_INPUT].getVoltage(), inputs[VOCT_II_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
+			processWf(args, currWfKframeState[2], inputs[WAVE_III_INPUT].getVoltage(), inputs[VOCT_III_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
+			processWf(args, currWfKframeState[3], inputs[WAVE_IV_INPUT].getVoltage(), inputs[VOCT_IV_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
+			processWf(args, currWfKframeState[4], inputs[WAVE_V_INPUT].getVoltage(), inputs[VOCT_V_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
+
 			// if it is determined that this is the last audio frame of the visual keyframe, save the values to the list of keyframes
 			if(currFrameInKf == 0){
 				// output the value of the keyframe
