@@ -226,13 +226,12 @@ struct ToKeyframes : Module {
 
 		// use v/oct to capture a window if the signal the length of 1 wavelength
 		float samplesInWavelength = args.sampleRate / voctToHz(voctCV); // determine the number of audio samples in one wavelength of this wave
-		float samplesInWfSample   = (samplesInWavelength / maxWfResolution);
 
 		if (
 			// if the wavelength is less than the freq of the visual keyframe, capture the latest full wavelength in the visual keyframe
 			(
-				float(framesInKf - currFrameInKf) < (samplesInWavelength * 3.f) &&
-				float(framesInKf - currFrameInKf) >  samplesInWavelength
+				float(framesInKf - currFrameInKf) < (samplesInWavelength * 2.f) //&&
+				//float(framesInKf - currFrameInKf) >  samplesInWavelength
 			)
 			// TODO: implement this condition vvv
 			// ||
@@ -255,10 +254,16 @@ struct ToKeyframes : Module {
 			// 	DEBUG("		total frames within keyframe: %ld", framesInKf);
 			// 	DEBUG("		record state: %s", wfRecordState[0] ? "true" : "false");
 			// }
-			
-			size_t sample_index = size_t( round(fmod(float(args.frame), samplesInWavelength)) );
+			float timeRatio = ( samplesInWavelength < maxWfResolution || samplesInWavelength > float(framesInKf) ) ? 1.000f : (maxWfResolution / samplesInWavelength);
+
+			size_t sample_index = size_t( round(fmod(float(args.frame), samplesInWavelength)) * timeRatio ) % maxWfResolution;
 			
 			waveKf[sample_index] = voltage; // float(sample_index);
+
+			if( args.frame % int64_t(samplesInWavelength) == 0 && timeRatio < 1.f ){
+				DEBUG("		TIME RATIO: %f Index into wf sample: %ld", timeRatio, sample_index);
+			}
+
 			// Below is a line used to check the phase of the waveform captured in the visual keyframe of the wave 
 			//currWaveformState[0][sample_index] = (inputs[WAVE_I_INPUT].getVoltage() > 3.0) ? 999999.0 : 0.0;
 
