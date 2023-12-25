@@ -55,7 +55,6 @@ void saveWfKeyframesToCSV(const std::vector<std::vector<std::vector<float>>>& wf
 		for (size_t wave = 0; wave < wfKyfrms[0].size(); wave++) {
 			for (size_t sample = 0; sample < wfKyfrms[0][0].size(); sample++) {
 				csvStreams[wave] << std::to_string( wfKyfrms[kframe][wave][sample] );
-				//csvStreams[wave] << std::to_string( 0.0 );
 				if(sample < wfKyfrms[0][0].size() - 1){
 					csvStreams[wave] << ",";
 				}
@@ -80,7 +79,7 @@ void saveWfKeyframesToCSV(const std::vector<std::vector<std::vector<float>>>& wf
 struct ToKeyframes : Module {
 
 	// TODO: connect the keyframeRate up with the appropriate param input
-	int64_t keyframeRate = 24; // stored in this data type so that there is less casting per process call
+	int64_t keyframeRate = 60; // stored in this data type so that there is less casting per process call
 	int64_t startFrame = 0; // this value is set when the RECORD input is triggered
 	bool recordingActive = false; // determines whether keyframes will be added
 	// each row is a keyframe, each column is a track. Makes it easier to append values (and prob better for mem management)
@@ -228,21 +227,11 @@ struct ToKeyframes : Module {
 		float samplesInWavelength = args.sampleRate / voctToHz(voctCV); // determine the number of audio samples in one wavelength of this wave
 
 		if (
-			// if the wavelength is less than the freq of the visual keyframe, capture the latest full wavelength in the visual keyframe
-			(
-				float(framesInKf - currFrameInKf) < (samplesInWavelength * 2.f) //&&
-				//float(framesInKf - currFrameInKf) >  samplesInWavelength
-			)
-			// TODO: implement this condition vvv
-			// ||
-			// // if the wavelength is longer than the frequency of the visual frame rate, use different conditions
-			// (
-			//  samplesInWavelength > framesInKeyframe
-			// )
+			// condition that ensures only the latest possible wavelength is captured, with a little bit of buffer
+			// * (1.f + (2.f/maxWfResolution)) avoids rounding errors where one sample isn't written to
+			float(framesInKf - currFrameInKf) < (samplesInWavelength * (1.f + (2.f/maxWfResolution)))
 		){
-			// TODO: this line below is a little sloppy in that it wraps back around and overwrites a few values,
-			// 		 but when I tried to get it to write every value once every once in a while one single visual 
-			//       sample in the visual keyframe would be missed, this solves that for now, probably wont be an issue
+			// TODO: wavelengths longer than the visual keyframe length are not stabilized, maybe at 60fps and higher this will matter more
 
 			// if( args.frame % int64_t(samplesInWavelength) == 0){
 			// 	DEBUG("		WAVE");
@@ -254,15 +243,16 @@ struct ToKeyframes : Module {
 			// 	DEBUG("		total frames within keyframe: %ld", framesInKf);
 			// 	DEBUG("		record state: %s", wfRecordState[0] ? "true" : "false");
 			// }
+			
 			float timeRatio = ( samplesInWavelength < maxWfResolution || samplesInWavelength > float(framesInKf) ) ? 1.000f : (maxWfResolution / samplesInWavelength);
 
 			size_t sample_index = size_t( round(fmod(float(args.frame), samplesInWavelength)) * timeRatio ) % maxWfResolution;
 			
 			waveKf[sample_index] = voltage; // float(sample_index);
 
-			if( args.frame % int64_t(samplesInWavelength) == 0 && timeRatio < 1.f ){
-				DEBUG("		TIME RATIO: %f Index into wf sample: %ld", timeRatio, sample_index);
-			}
+			// if( args.frame % int64_t(samplesInWavelength) == 0 && timeRatio < 1.f ){
+			// 	DEBUG("		TIME RATIO: %f Index into wf sample: %ld", timeRatio, sample_index);
+			// }
 
 			// Below is a line used to check the phase of the waveform captured in the visual keyframe of the wave 
 			//currWaveformState[0][sample_index] = (inputs[WAVE_I_INPUT].getVoltage() > 3.0) ? 999999.0 : 0.0;
