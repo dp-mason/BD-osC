@@ -1,39 +1,58 @@
 import bpy
 import os
 
-def create_wf_mesh(samples, as_grid:bool=False):
+def csv_to_matrix(filename:str):
+    text_lines = open( bpy.path.abspath("//" + filename), "r" ).readlines()
+
+    wf_sample_matrix = []
+
+    for row in text_lines:
+        wf_sample_matrix.append([float(sample) for sample in row.split(",")])
+    
+    return wf_sample_matrix
+
+def create_wf_mesh(csv_filename:str, as_grid:bool=False):
+    
+    wf_kf_matrix = csv_to_matrix(csv_filename)
     
     verts = []
     edges = []
     faces = []
     
-    for row in range(0, len(samples)):
-        for col in range(0, len(samples[0])):
-            vert_index = row * len(samples[0]) + col
+    # TODO: make it so that the physical width of the wave remains constant despite the number of samples in the row (padded left and right by -99) 
+    
+    for row in range(0, len(wf_kf_matrix)):
+        for col in range( 0, len(wf_kf_matrix[0]) ):
+            vert_index = row * len(wf_kf_matrix[0]) + col
             
             if as_grid:    
-                verts.append( (row, -1 * col, samples[row][col]) )
+                verts.append( (row, -1 * col, wf_kf_matrix[row][col]) )
             else:
-                verts.append( (vert_index, 0, samples[row][col]) )
+                verts.append( (vert_index, 0, wf_kf_matrix[row][col]) )
             
             # avoids adding edges between rows of a grid if it is a grid setup
-            if vert_index > 0 and ((not as_grid) or vert_index % len(samples[0]) > 0):
+            if vert_index > 0 and ((not as_grid) or vert_index % len(wf_kf_matrix[0]) > 0):
                 edges.append( (vert_index, vert_index - 1) )
-                
-    mesh = bpy.data.meshes.new("wf_mesh") 
-    obj = bpy.data.objects.new("wf_obj", mesh) 
+    
+    obj_name = csv_filename.replace(".csv","") + "_obj"
+    
+    mesh = bpy.data.meshes.new( csv_filename.replace(".csv","") + "_mesh" ) 
+    obj = bpy.data.objects.new( obj_name, mesh ) 
     col = bpy.data.collections.get("vcv_waveforms") 
     col.objects.link(obj)
     bpy.context.view_layer.objects.active = obj
 
     mesh.from_pydata(verts, edges, faces)
     
+    modif = obj.modifiers.new("wf_nodes", "NODES")
+    modif.node_group = bpy.data.node_groups["wf_nodes_grid"]
+    modif["Socket_2"] = len(wf_kf_matrix[0])
+    
     return obj
 
 vcv_dev = os.environ['HOME'] + "/VCV_dev"
 
 kframes    = open( bpy.path.abspath("//keyframes.csv"), "r" ).readlines()
-wf_kframes = open( bpy.path.abspath("//waveform_keyframes.csv"), "r" ).readlines()
 
 vcv_gn     = bpy.data.collections['vcv_gn_templates']
 vcv_tracks = bpy.data.collections['vcv_tracks']
@@ -60,12 +79,9 @@ for frame in range(0, len(kframes)):
         bpy.data.node_groups["VCV_keyframes"].nodes["track_" + str(track_index)].outputs[0].default_value = tracks[track_index]
         bpy.data.node_groups["VCV_keyframes"].nodes["track_" + str(track_index)].outputs[0].keyframe_insert("default_value", frame=frame)
 
-wf_sample_matrix = []
 
-for row in wf_kframes:
-    wf_sample_matrix.append([float(sample) for sample in row.split(",")])
-
-wf_mesh_obj = create_wf_mesh(wf_sample_matrix, as_grid=True)
-modif = wf_mesh_obj.modifiers.new("wf_nodes", "NODES")
-modif.node_group = bpy.data.node_groups["wf_nodes_grid"]
-modif["Socket_2"] = len(wf_sample_matrix[0])
+wf_mesh_obj = create_wf_mesh("wave_1_keyframes.csv", as_grid=True)
+wf_mesh_obj = create_wf_mesh("wave_2_keyframes.csv", as_grid=True)
+#wf_mesh_obj = create_wf_mesh("wave_3_keyframes.csv", as_grid=True)
+#wf_mesh_obj = create_wf_mesh("wave_4_keyframes.csv", as_grid=True)
+#wf_mesh_obj = create_wf_mesh("wave_5_keyframes.csv", as_grid=True)
