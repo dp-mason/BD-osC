@@ -1,9 +1,9 @@
 {
-  "slug": "ToKeyframes",
-  "name": "ToKeyframes",
+  "slug": "BD_osC",
+  "name": "BD_osC",
   "version": "2.0.0",
   "license": "MIT",
-  "brand": "ToKeyframes",
+  "brand": "DP_Audio",
   "author": "dpmason",
   "authorEmail": "davidpattenmason@gmail.com",
   "authorUrl": "",
@@ -14,9 +14,9 @@
   "changelogUrl": "",
   "modules": [
     {
-      "slug": "ToKeyframes",
-      "name": "ToKeyframes",
-      "description": "Converts recorded signal(s) to keyframes based on given framerate",
+      "slug": "BD_osC",
+      "name": "BD_osC",
+      "description": "Saves recorded CV signal(s) and waveforms as keyframes in a CSV file based on given framerate",
       "tags": []
     }
   ]

@@ -76,7 +76,7 @@ void saveWfKeyframesToCSV(const std::vector<std::vector<std::vector<float>>>& wf
 	return;
 }
 
-struct ToKeyframes : Module {
+struct BD_osC : Module {
 
 	// TODO: connect the keyframeRate up with the appropriate param input
 	int64_t keyframeRate = 60; // stored in this data type so that there is less casting per process call
@@ -160,7 +160,7 @@ struct ToKeyframes : Module {
 		LIGHTS_LEN
 	};
 
-	ToKeyframes() {
+	BD_osC() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(FRAME_RATE_PARAM, 0.f, 1.f, 0.f, "");
 		configParam(WAVE_SAMPLE_RATE_PARAM, 0.f, 1.f, 0.f, "");
@@ -201,7 +201,7 @@ struct ToKeyframes : Module {
 		input_12_avg = 0.0;
 
 		for(int currWave = 0; currWave < numWfs; currWave++){
-			currWfKframeState[currWave] = {std::vector<float>(maxWfResolution, -99.f)};
+			currWfKframeState[currWave] = {std::vector<float>(maxWfResolution, 0.f)};
 		}
 	}
 
@@ -226,11 +226,11 @@ struct ToKeyframes : Module {
 		// use v/oct to capture a window if the signal the length of 1 wavelength
 		float samplesInWavelength = args.sampleRate / voctToHz(voctCV); // determine the number of audio samples in one wavelength of this wave
 
-		if (
-			// condition that ensures only the latest possible wavelength is captured, with a little bit of buffer
-			// * (1.f + (2.f/maxWfResolution)) avoids rounding errors where one sample isn't written to
-			float(framesInKf - currFrameInKf) < (samplesInWavelength * (1.f + (2.f/maxWfResolution)))
-		){
+		// if (
+		// 	// condition that ensures only the latest possible wavelength is captured, with a little bit of buffer
+		// 	// * (1.f + (2.f/maxWfResolution)) avoids rounding errors where one sample isn't written to
+		// 	float(framesInKf - currFrameInKf) < (samplesInWavelength * (1.f + (2.f/maxWfResolution)))
+		// ){
 			// TODO: wavelengths longer than the visual keyframe length are not stabilized, maybe at 60fps and higher this will matter more
 
 			// if( args.frame % int64_t(samplesInWavelength) == 0){
@@ -248,7 +248,7 @@ struct ToKeyframes : Module {
 
 			size_t sample_index = size_t( round(fmod(float(args.frame), samplesInWavelength)) * timeRatio ) % maxWfResolution;
 			
-			waveKf[sample_index] = voltage; // float(sample_index);
+			waveKf[sample_index] = (waveKf[sample_index] * 0.5) + (voltage * 0.5); // float(sample_index);
 
 			// if( args.frame % int64_t(samplesInWavelength) == 0 && timeRatio < 1.f ){
 			// 	DEBUG("		TIME RATIO: %f Index into wf sample: %ld", timeRatio, sample_index);
@@ -257,7 +257,7 @@ struct ToKeyframes : Module {
 			// Below is a line used to check the phase of the waveform captured in the visual keyframe of the wave 
 			//currWaveformState[0][sample_index] = (inputs[WAVE_I_INPUT].getVoltage() > 3.0) ? 999999.0 : 0.0;
 
-		}
+		// }
 		// currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
 		
 	}
@@ -360,17 +360,17 @@ struct ToKeyframes : Module {
 };
 
 
-struct ToKeyframesWidget : ModuleWidget {
+struct BD_osCWidget : ModuleWidget {
 	BGPanel *pBackPanel;
 	
-	ToKeyframesWidget(ToKeyframes* module) {
+	BD_osCWidget(BD_osC* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/ToKeyframes.svg")));
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/BD-osC.svg")));
 
 		// Adapted from https://github.com/netboy3/MSM-vcvrack-plugin/
 		pBackPanel = new BGPanel();
 		pBackPanel->box.size = box.size;
-		pBackPanel->imagePath = asset::plugin(pluginInstance, "res/ToKeyframes.jpg");
+		pBackPanel->imagePath = asset::plugin(pluginInstance, "res/BD-osC.jpg");
 		pBackPanel->visible = false;
 		addChild(pBackPanel);
 		pBackPanel->visible = true;
@@ -380,45 +380,45 @@ struct ToKeyframesWidget : ModuleWidget {
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(153.479, 23.874)), module, ToKeyframes::FRAME_RATE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(160.08, 49.694)), module, ToKeyframes::WAVE_SAMPLE_RATE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(153.479, 23.874)), module, BD_osC::FRAME_RATE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(160.08, 49.694)), module, BD_osC::WAVE_SAMPLE_RATE_PARAM));
 
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(153.479, 23.874)), module, ToKeyframes::FRAME_RATE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(160.08, 49.694)), module, ToKeyframes::WAVE_SAMPLE_RATE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(153.479, 23.874)), module, BD_osC::FRAME_RATE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(160.08, 49.694)), module, BD_osC::WAVE_SAMPLE_RATE_PARAM));
 
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(28.534, 13.424)), module, ToKeyframes::START_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(59.936, 13.354)), module, ToKeyframes::ABORT_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(90.878, 19.109)), module, ToKeyframes::SAVE_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(39.611, 45.975)), module, ToKeyframes::INPUT_2_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(106.828, 46.561)), module, ToKeyframes::WAVE_I_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(62.871, 47.059)), module, ToKeyframes::INPUT_3_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.502, 49.044)), module, ToKeyframes::INPUT_1_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(134.556, 49.003)), module, ToKeyframes::WAVE_II_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(85.815, 51.288)), module, ToKeyframes::INPUT_4_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(115.716, 56.7)), module, ToKeyframes::VOCT_I_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(143.609, 59.145)), module, ToKeyframes::VOCT_II_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(53.596, 68.292)), module, ToKeyframes::INPUT_6_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.335, 68.777)), module, ToKeyframes::INPUT_5_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(95.721, 71.242)), module, ToKeyframes::WAVE_III_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(76.645, 71.479)), module, ToKeyframes::INPUT_7_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(123.479, 74.974)), module, ToKeyframes::WAVE_IV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(151.449, 75.38)), module, ToKeyframes::WAVE_V_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(104.727, 81.414)), module, ToKeyframes::VOCT_III_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(132.461, 85.203)), module, ToKeyframes::VOCT_IV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(160.423, 85.545)), module, ToKeyframes::VOCT_V_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(39.608, 90.196)), module, ToKeyframes::INPUT_9_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(62.837, 91.32)), module, ToKeyframes::INPUT_10_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.532, 93.388)), module, ToKeyframes::INPUT_8_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(85.809, 95.59)), module, ToKeyframes::INPUT_11_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(108.676, 100.108)), module, ToKeyframes::INPUT_12_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(131.844, 102.18)), module, ToKeyframes::INPUT_13_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(28.534, 13.424)), module, BD_osC::START_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(59.936, 13.354)), module, BD_osC::ABORT_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(90.878, 19.109)), module, BD_osC::SAVE_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(39.611, 45.975)), module, BD_osC::INPUT_2_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(106.828, 46.561)), module, BD_osC::WAVE_I_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(62.871, 47.059)), module, BD_osC::INPUT_3_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.502, 49.044)), module, BD_osC::INPUT_1_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(134.556, 49.003)), module, BD_osC::WAVE_II_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(85.815, 51.288)), module, BD_osC::INPUT_4_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(115.716, 56.7)), module, BD_osC::VOCT_I_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(143.609, 59.145)), module, BD_osC::VOCT_II_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(53.596, 68.292)), module, BD_osC::INPUT_6_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.335, 68.777)), module, BD_osC::INPUT_5_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(95.721, 71.242)), module, BD_osC::WAVE_III_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(76.645, 71.479)), module, BD_osC::INPUT_7_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(123.479, 74.974)), module, BD_osC::WAVE_IV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(151.449, 75.38)), module, BD_osC::WAVE_V_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(104.727, 81.414)), module, BD_osC::VOCT_III_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(132.461, 85.203)), module, BD_osC::VOCT_IV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(160.423, 85.545)), module, BD_osC::VOCT_V_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(39.608, 90.196)), module, BD_osC::INPUT_9_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(62.837, 91.32)), module, BD_osC::INPUT_10_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.532, 93.388)), module, BD_osC::INPUT_8_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(85.809, 95.59)), module, BD_osC::INPUT_11_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(108.676, 100.108)), module, BD_osC::INPUT_12_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(131.844, 102.18)), module, BD_osC::INPUT_13_INPUT));
 	}
 };
 
 
-Model* modelToKeyframes = createModel<ToKeyframes, ToKeyframesWidget>("ToKeyframes");
+Model* modelBD_osC = createModel<BD_osC, BD_osCWidget>("BD_osC");
