@@ -96,21 +96,23 @@ struct BD_osC : Module {
 	float input_12_avg = 0.f;
 
 	// Determines the resolution of a visualized waveform
-	// TODO: connect the waveformResolution up with the appropriate param input
-	const int64_t maxWfResolution = 256;
+	int64_t maxWfResolution = 256;
 
-    // Set the dimensions
+    // Set the dimensions, number of waveforms
     int numWfs = 5;
 
-	std::vector<bool> wfRecordState = std::vector<bool>(numWfs, false);
+	std::vector<bool> wfRecordState = std::vector<bool>(numWfs, false); // TODO: wtf is this for again? Unused.
 
-	// Define a 2D vector representing the current state of all the waveforms
+	// Define a matrix representing the current state of all the waveforms
     std::vector<std::vector<float>> currWfKframeState = std::vector<std::vector<float>> (
-		numWfs, 
+		numWfs,
 		std::vector<float> (maxWfResolution, 0.f)
 	);
 
-	// Define a 3D vector representing the visual keyframes of the waves over time
+	// Define a tensor representing the visual keyframes of the waves over time
+	// At the end of each keyframe, the matrix representing the current state of all waveforms will be appended
+	// Think of it like every keyframe is a sheet of paper with 5 waveform states, each time a keyframe is added
+	// 	a new sheet of paper is placed at the bottom of the stack (the momory isnt moved as if it were a "stack" though) 
     std::vector<std::vector<std::vector<float>>> waveformKeyframes = std::vector<std::vector<std::vector<float>>>(
 		1, 
 		std::vector<std::vector<float>>(
@@ -162,8 +164,10 @@ struct BD_osC : Module {
 
 	BD_osC() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(FRAME_RATE_PARAM, 0.f, 1.f, 0.f, "");
-		configParam(WAVE_SAMPLE_RATE_PARAM, 0.f, 1.f, 0.f, "");
+		configParam(FRAME_RATE_PARAM, 0.f, 3.f, 0.f, "");
+		paramQuantities[FRAME_RATE_PARAM]->snapEnabled = true;
+		configParam(WAVE_SAMPLE_RATE_PARAM, 0.f, 3.f, 0.f, "");
+		paramQuantities[WAVE_SAMPLE_RATE_PARAM]->snapEnabled = true;
 		configInput(START_INPUT, "");
 		configInput(ABORT_INPUT, "");
 		configInput(SAVE_INPUT, "");
@@ -222,7 +226,6 @@ struct BD_osC : Module {
 	}
 
 	void processWf(const ProcessArgs& args, std::vector<float>& waveKf, float voltage, float voctCV, int64_t framesInKf, int64_t currFrameInKf){
-
 		// use v/oct to capture a window if the signal the length of 1 wavelength
 		float samplesInWavelength = args.sampleRate / voctToHz(voctCV); // determine the number of audio samples in one wavelength of this wave
 
@@ -263,6 +266,41 @@ struct BD_osC : Module {
 	}
 
 	void process(const ProcessArgs& args) override {
+		// set the frame rate and waveform resolution based on param knobs`
+		switch(int(params[FRAME_RATE_PARAM].getValue())){
+			case 0:
+				keyframeRate = 24;
+				break;
+			case 1:
+				keyframeRate = 25;
+				break;
+			case 2:
+				keyframeRate = 30;
+				break;
+			case 3:
+				keyframeRate = 60;
+				break;
+			default:
+				DEBUG("UNHANDLED PARAM VALUE FOR FRAME RATE: %f", params[FRAME_RATE_PARAM].getValue());
+				keyframeRate = 24;
+		}
+		switch(int(params[WAVE_SAMPLE_RATE_PARAM].getValue())){
+			case 0:
+				maxWfResolution = 32;
+				break;
+			case 1:
+				maxWfResolution = 64;
+				break;
+			case 2:
+				maxWfResolution = 128;
+				break;
+			case 3:
+				maxWfResolution = 256;
+				break;
+			default:
+				DEBUG("UNHANDLED PARAM VALUE FOR SAMPLE RATE: %f", params[WAVE_SAMPLE_RATE_PARAM].getValue());
+				keyframeRate = 32;
+		}
 
 		// activate recording if the RECORD input is triggered
 		if(prevStartVoltage == 0.f && inputs[START_INPUT].getVoltage() > prevStartVoltage){
