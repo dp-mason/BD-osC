@@ -164,7 +164,7 @@ struct BD_osC : Module {
 
 	BD_osC() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		configParam(FRAME_RATE_PARAM, 0.f, 3.f, 0.f, "");
+		configParam(FRAME_RATE_PARAM, 0.f, 4.f, 0.f, "");
 		paramQuantities[FRAME_RATE_PARAM]->snapEnabled = true;
 		configParam(WAVE_SAMPLE_RATE_PARAM, 0.f, 3.f, 0.f, "");
 		paramQuantities[WAVE_SAMPLE_RATE_PARAM]->snapEnabled = true;
@@ -413,21 +413,26 @@ struct BD_osCWidget : ModuleWidget {
 		addChild(pBackPanel);
 		pBackPanel->visible = true;
 
+		// addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
+		// addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
+		// addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		// addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+
+		
+		RoundBigBlackKnob* fr_knob = createParamCentered<RoundBigBlackKnob>(mm2px(Vec(150.25, 18.39)), module, BD_osC::FRAME_RATE_PARAM);
+		fr_knob->minAngle = -1.0 * (M_PI * 0.52);
+		fr_knob->maxAngle = M_PI * 0.52;
+		addParam(fr_knob);
+		
+		RoundBlackKnob* wsr_knob = createParamCentered<RoundBlackKnob>(mm2px(Vec(160.08, 49.694)), module, BD_osC::WAVE_SAMPLE_RATE_PARAM);
+		wsr_knob->minAngle = 0.0 - (M_PI * 0.57);
+		wsr_knob->maxAngle = M_PI * 0.32;
+		addParam(wsr_knob);
+
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(153.479, 23.874)), module, BD_osC::FRAME_RATE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(160.08, 49.694)), module, BD_osC::WAVE_SAMPLE_RATE_PARAM));
-
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(153.479, 23.874)), module, BD_osC::FRAME_RATE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(160.08, 49.694)), module, BD_osC::WAVE_SAMPLE_RATE_PARAM));
 
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(28.534, 13.424)), module, BD_osC::START_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(59.936, 13.354)), module, BD_osC::ABORT_INPUT));
