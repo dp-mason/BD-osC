@@ -266,41 +266,6 @@ struct BD_osC : Module {
 	}
 
 	void process(const ProcessArgs& args) override {
-		// set the frame rate and waveform resolution based on param knobs`
-		switch(int(params[FRAME_RATE_PARAM].getValue())){
-			case 0:
-				keyframeRate = 24;
-				break;
-			case 1:
-				keyframeRate = 25;
-				break;
-			case 2:
-				keyframeRate = 30;
-				break;
-			case 3:
-				keyframeRate = 60;
-				break;
-			default:
-				DEBUG("UNHANDLED PARAM VALUE FOR FRAME RATE: %f", params[FRAME_RATE_PARAM].getValue());
-				keyframeRate = 24;
-		}
-		switch(int(params[WAVE_SAMPLE_RATE_PARAM].getValue())){
-			case 0:
-				maxWfResolution = 32;
-				break;
-			case 1:
-				maxWfResolution = 64;
-				break;
-			case 2:
-				maxWfResolution = 128;
-				break;
-			case 3:
-				maxWfResolution = 256;
-				break;
-			default:
-				DEBUG("UNHANDLED PARAM VALUE FOR SAMPLE RATE: %f", params[WAVE_SAMPLE_RATE_PARAM].getValue());
-				keyframeRate = 32;
-		}
 
 		// activate recording if the RECORD input is triggered
 		if(prevStartVoltage == 0.f && inputs[START_INPUT].getVoltage() > prevStartVoltage){
@@ -369,6 +334,46 @@ struct BD_osC : Module {
 
 				DEBUG("number of keyframes is %ld", keyframes.size());
 
+			}
+		} 
+		else {
+			// Allow the frame rate and waveform resolution to be changed with param knobs when recording is not active
+			switch(int(params[FRAME_RATE_PARAM].getValue())){
+				case 0:
+					keyframeRate = 24;
+					break;
+				case 1:
+					keyframeRate = 25;
+					break;
+				case 2:
+					keyframeRate = 30;
+					break;
+				case 3:
+					keyframeRate = 50;
+					break;
+				case 4:
+					keyframeRate = 60;
+					break;
+				default:
+					DEBUG("UNHANDLED PARAM VALUE FOR FRAME RATE: %f", params[FRAME_RATE_PARAM].getValue());
+					keyframeRate = 24;
+			}
+			switch(int(params[WAVE_SAMPLE_RATE_PARAM].getValue())){
+				case 0:
+					maxWfResolution = 32;
+					break;
+				case 1:
+					maxWfResolution = 64;
+					break;
+				case 2:
+					maxWfResolution = 128;
+					break;
+				case 3:
+					maxWfResolution = 256;
+					break;
+				default:
+					DEBUG("UNHANDLED PARAM VALUE FOR SAMPLE RATE: %f", params[WAVE_SAMPLE_RATE_PARAM].getValue());
+					keyframeRate = 32;
 			}
 		}
 
