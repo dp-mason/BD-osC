@@ -1,6 +1,9 @@
 import bpy
 import os
 
+# TODO: Create cleanup script, it doesn't matter that much, but some keyframes are tucked away in a place that is tricky
+#   to delete
+
 def csv_to_matrix(filename:str):
     text_lines = open( bpy.path.abspath("//" + filename), "r" ).readlines()
 
@@ -11,6 +14,9 @@ def csv_to_matrix(filename:str):
     
     return wf_sample_matrix
 
+# TODO: add smoothing between keyframes to reduce jitter, le the previous keyframe influence the current
+#       don't let the smoothing compound though
+# TODO: allow subsamples, ex. recording audio keyframes at 120 fps and creating visual keyframes at 60fps or 30fps
 def create_wf_mesh(csv_filename:str, as_grid:bool=False):
     
     wf_kf_matrix = csv_to_matrix(csv_filename)
@@ -82,6 +88,6 @@ for frame in range(0, len(kframes)):
 
 wf_mesh_obj = create_wf_mesh("wave_1_keyframes.csv", as_grid=True)
 wf_mesh_obj = create_wf_mesh("wave_2_keyframes.csv", as_grid=True)
-#wf_mesh_obj = create_wf_mesh("wave_3_keyframes.csv", as_grid=True)
-#wf_mesh_obj = create_wf_mesh("wave_4_keyframes.csv", as_grid=True)
-#wf_mesh_obj = create_wf_mesh("wave_5_keyframes.csv", as_grid=True)
+wf_mesh_obj = create_wf_mesh("wave_3_keyframes.csv", as_grid=True)
+wf_mesh_obj = create_wf_mesh("wave_4_keyframes.csv", as_grid=True)
+wf_mesh_obj = create_wf_mesh("wave_5_keyframes.csv", as_grid=True)
