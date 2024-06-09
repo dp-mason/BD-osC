@@ -159,6 +159,7 @@ struct BD_osC : Module {
 		OUTPUTS_LEN
 	};
 	enum LightId {
+		ENUMS(RECORD_LIGHT, 3),
 		LIGHTS_LEN
 	};
 
@@ -284,6 +285,10 @@ struct BD_osC : Module {
 		prevStopVoltage = inputs[ABORT_INPUT].getVoltage();
 		
 		if(recordingActive) {
+			// Turn on recording light. Magic number bad, I know
+			lights[RECORD_LIGHT + 0].setBrightness(1.0);
+			lights[RECORD_LIGHT + 1].setBrightness(0.0);
+			lights[RECORD_LIGHT + 2].setBrightness(0.0);
 			// TODO: this way for tracking the currframe in kf will eventually be out of sync over time, prob not relevant, but worth noting
 			// TODO: maybe this should be calles "samplesInKeyframe" for understandability
 			int64_t framesInKeyframe = (int64_t)args.sampleRate / keyframeRate; // calculated every frame bc sample rate can change during execution
@@ -337,6 +342,10 @@ struct BD_osC : Module {
 			}
 		} 
 		else {
+			// Turn off recording light
+			lights[RECORD_LIGHT + 0].setBrightness(0.000);
+			lights[RECORD_LIGHT + 1].setBrightness(0.000);
+			lights[RECORD_LIGHT + 2].setBrightness(0.000);
 			// Allow the frame rate and waveform resolution to be changed with param knobs when recording is not active
 			switch(int(params[FRAME_RATE_PARAM].getValue())){
 				case 0:
@@ -377,7 +386,6 @@ struct BD_osC : Module {
 			}
 		}
 
-
 		// asynchronously save the keyframes to disk as a CSV file upon trigger
 		if(prevSaveVoltage == 0.f && inputs[SAVE_INPUT].getVoltage() > prevSaveVoltage){
 			DEBUG("Saving Keyframes... ");
@@ -417,12 +425,6 @@ struct BD_osCWidget : ModuleWidget {
 		pBackPanel->visible = false;
 		addChild(pBackPanel);
 		pBackPanel->visible = true;
-
-		// addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		// addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		// addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		// addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		
 		RoundBigBlackKnob* fr_knob = createParamCentered<RoundBigBlackKnob>(mm2px(Vec(150.25, 18.39)), module, BD_osC::FRAME_RATE_PARAM);
 		fr_knob->minAngle = -1.0 * (M_PI * 0.52);
@@ -433,6 +435,8 @@ struct BD_osCWidget : ModuleWidget {
 		wsr_knob->minAngle = 0.0 - (M_PI * 0.57);
 		wsr_knob->maxAngle = M_PI * 0.32;
 		addParam(wsr_knob);
+		
+		addChild(createLightCentered<LargeLight<RedGreenBlueLight>>(mm2px(Vec(118.1, 24.1)), module, BD_osC::RECORD_LIGHT));
 
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
