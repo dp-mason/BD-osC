@@ -387,6 +387,7 @@ struct BD_osC : Module {
 		}
 
 		// asynchronously save the keyframes to disk as a CSV file upon trigger
+		// TODO: for some reason this segfaults or something when triggered with a gate, not entirely sure why
 		if(prevSaveVoltage == 0.f && inputs[SAVE_INPUT].getVoltage() > prevSaveVoltage){
 			DEBUG("Saving Keyframes... ");
 			auto parent_folder = APP->patch->path.substr(0, APP->patch->path.rfind("/") + 1);
