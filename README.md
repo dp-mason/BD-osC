@@ -31,3 +31,7 @@
 
 ## TODO
 - Create tutorial VCV patch file
+- Add extra metadata file that can inform animation programs of the framerate, so it need not be set manually
+- ^^^ Add the ability to load and parse this file to the blender importing script
+- debug issue where keyframin end early? Issue with blender script or vcv module?
+- devise, implement, and run a test to ensure the keyframer's sense of the current visual keyframe is not out of sync (esp over long runs)
