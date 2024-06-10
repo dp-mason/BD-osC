@@ -53,6 +53,7 @@ void saveWfKeyframesToCSV(const std::vector<std::vector<std::vector<float>>>& wf
 
 	for (size_t kframe = 0; kframe < wfKyfrms.size(); kframe++) {
 		for (size_t wave = 0; wave < wfKyfrms[0].size(); wave++) {
+			if (wfKyfrms[kframe][wave].size() == 0){ continue; }
 			for (size_t sample = 0; sample < wfKyfrms[0][0].size(); sample++) {
 				csvStreams[wave] << std::to_string( wfKyfrms[kframe][wave][sample] );
 				if(sample < wfKyfrms[0][0].size() - 1){
@@ -126,10 +127,9 @@ struct BD_osC : Module {
 		WAVE_SAMPLE_RATE_PARAM,
 		PARAMS_LEN
 	};
+	// CAUTION: THE ORDER OF THE INPUTS MATTERS FOR LATER LOOPS
+	// Add any new inputs to the end
 	enum InputId {
-		START_INPUT,
-		ABORT_INPUT,
-		SAVE_INPUT,
 		WAVE_I_INPUT,
 		WAVE_II_INPUT,
 		WAVE_III_INPUT,
@@ -140,6 +140,9 @@ struct BD_osC : Module {
 		VOCT_III_INPUT,
 		VOCT_IV_INPUT,
 		VOCT_V_INPUT,
+		START_INPUT,
+		ABORT_INPUT,
+		SAVE_INPUT,
 		INPUT_1_INPUT,
 		INPUT_2_INPUT,
 		INPUT_3_INPUT,
@@ -226,43 +229,24 @@ struct BD_osC : Module {
 		return (440.f / 2.f) * pow(2.f, (voctVoltage + 0.25));
 	}
 
-	void processWf(const ProcessArgs& args, std::vector<float>& waveKf, float voltage, float voctCV, int64_t framesInKf, int64_t currFrameInKf){
+	void processWf(
+		const ProcessArgs& args, 
+		std::vector<float>& waveKf, 
+		float voltage, 
+		float voctCV, 
+		int64_t framesInKf, 
+		int64_t currFrameInKf
+	){
 		// use v/oct to capture a window if the signal the length of 1 wavelength
-		float samplesInWavelength = args.sampleRate / voctToHz(voctCV); // determine the number of audio samples in one wavelength of this wave
-
-		// if (
-		// 	// condition that ensures only the latest possible wavelength is captured, with a little bit of buffer
-		// 	// * (1.f + (2.f/maxWfResolution)) avoids rounding errors where one sample isn't written to
-		// 	float(framesInKf - currFrameInKf) < (samplesInWavelength * (1.f + (2.f/maxWfResolution)))
-		// ){
-			// TODO: wavelengths longer than the visual keyframe length are not stabilized, maybe at 60fps and higher this will matter more
-
-			// if( args.frame % int64_t(samplesInWavelength) == 0){
-			// 	DEBUG("		WAVE");
-			// 	DEBUG("		v/oct input: %f", inputs[VOCT_I_INPUT].getVoltage());
-			// 	DEBUG("		hz: %f", voctToHz(voctCV));
-			// 	DEBUG("		sample rate: %f", args.sampleRate);
-			// 	DEBUG("		samples in wavelength: %f", samplesInWavelength);
-			// 	DEBUG("		current frame within keyframe: %ld", currFrameInKf);
-			// 	DEBUG("		total frames within keyframe: %ld", framesInKf);
-			// 	DEBUG("		record state: %s", wfRecordState[0] ? "true" : "false");
-			// }
+		// determine the number of audio samples in one wavelength of this wave
+		// input of less than -99.0 is meant to indicate that the v/oct input is disconnected
+		float samplesInWavelength = args.sampleRate / voctToHz(voctCV);
 			
-			float timeRatio = ( samplesInWavelength < maxWfResolution || samplesInWavelength > float(framesInKf) ) ? 1.000f : (maxWfResolution / samplesInWavelength);
+		float timeRatio = ( samplesInWavelength < maxWfResolution || samplesInWavelength > float(framesInKf) ) ? 1.000f : (maxWfResolution / samplesInWavelength);
 
-			size_t sample_index = size_t( round(fmod(float(args.frame), samplesInWavelength)) * timeRatio ) % maxWfResolution;
+		size_t sample_index = size_t( round(fmod(float(args.frame), samplesInWavelength)) * timeRatio ) % maxWfResolution;
 			
-			waveKf[sample_index] = (waveKf[sample_index] * 0.5) + (voltage * 0.5); // float(sample_index);
-
-			// if( args.frame % int64_t(samplesInWavelength) == 0 && timeRatio < 1.f ){
-			// 	DEBUG("		TIME RATIO: %f Index into wf sample: %ld", timeRatio, sample_index);
-			// }
-
-			// Below is a line used to check the phase of the waveform captured in the visual keyframe of the wave 
-			//currWaveformState[0][sample_index] = (inputs[WAVE_I_INPUT].getVoltage() > 3.0) ? 999999.0 : 0.0;
-
-		// }
-		// currWfKeyframe_I[currWfSample]   += (1.0 / float(framesInWfSample)) * inputs[WAVE_I_INPUT].getVoltage();
+		waveKf[sample_index] = (waveKf[sample_index] * 0.5) + (voltage * 0.5);
 		
 	}
 
@@ -301,12 +285,24 @@ struct BD_osC : Module {
 			input_11_avg += fractionOfAvg * inputs[INPUT_11_INPUT].getVoltage();
 			input_12_avg += fractionOfAvg * inputs[INPUT_12_INPUT].getVoltage();
 
-			// process the waveform inputs
-			processWf(args, currWfKframeState[0], inputs[WAVE_I_INPUT].getVoltage(), inputs[VOCT_I_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
-			processWf(args, currWfKframeState[1], inputs[WAVE_II_INPUT].getVoltage(), inputs[VOCT_II_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
-			processWf(args, currWfKframeState[2], inputs[WAVE_III_INPUT].getVoltage(), inputs[VOCT_III_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
-			processWf(args, currWfKframeState[3], inputs[WAVE_IV_INPUT].getVoltage(), inputs[VOCT_IV_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
-			processWf(args, currWfKframeState[4], inputs[WAVE_V_INPUT].getVoltage(), inputs[VOCT_V_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
+			// process the waveform inputs, the IDs run from 0..5 with the VOCT inputs occupying the next 5 spots
+			for ( int wf_id = WAVE_I_INPUT; wf_id <= WAVE_V_INPUT; wf_id++ ){
+				// Do not process this waveform if input is disconnected
+				if (inputs[wf_id].isConnected()){
+					// if the v/oct input of this waveform is disconnected, communicate that by sending a tiny value to keyframe func
+					float voct_voltage = (inputs[wf_id + 5].isConnected()) ? inputs[wf_id + 5].getVoltage() : -100.0;
+					processWf(args, currWfKframeState[wf_id], inputs[wf_id].getVoltage(), voct_voltage, framesInKeyframe, currFrameInKf);
+				}
+				else {
+					continue;
+				}
+			}
+
+			// processWf(args, currWfKframeState[0], inputs[WAVE_I_INPUT].getVoltage(), inputs[VOCT_I_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
+			// processWf(args, currWfKframeState[1], inputs[WAVE_II_INPUT].getVoltage(), inputs[VOCT_II_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
+			// processWf(args, currWfKframeState[2], inputs[WAVE_III_INPUT].getVoltage(), inputs[VOCT_III_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
+			// processWf(args, currWfKframeState[3], inputs[WAVE_IV_INPUT].getVoltage(), inputs[VOCT_IV_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
+			// processWf(args, currWfKframeState[4], inputs[WAVE_V_INPUT].getVoltage(), inputs[VOCT_V_INPUT].getVoltage(), framesInKeyframe, currFrameInKf);
 
 			// if it is determined that this is the last audio frame of the visual keyframe, save the values to the list of keyframes
 			if(currFrameInKf == 0){
@@ -407,7 +403,6 @@ struct BD_osC : Module {
 		}
 
 		prevSaveVoltage = inputs[SAVE_INPUT].getVoltage();
-
 	}
 };
 
