@@ -277,14 +277,8 @@ struct BD_osC : Module {
 			// TODO: maybe this should be calles "samplesInKeyframe" for understandability
 			int64_t framesInKeyframe = (int64_t)args.sampleRate / keyframeRate; // calculated every frame bc sample rate can change during execution
 			int64_t currFrameInKf = (args.frame - startFrame) % framesInKeyframe;
-			int fractionOfAvg = ( 1.0 / float(framesInKeyframe) );
+			// int fractionOfAvg = ( 1.0 / float(framesInKeyframe) );
 			
-			// accumulate what will be the eventual average value of inputs 9-12
-			input_9_avg  += fractionOfAvg *  inputs[INPUT_9_INPUT].getVoltage();
-			input_10_avg += fractionOfAvg * inputs[INPUT_10_INPUT].getVoltage();
-			input_11_avg += fractionOfAvg * inputs[INPUT_11_INPUT].getVoltage();
-			input_12_avg += fractionOfAvg * inputs[INPUT_12_INPUT].getVoltage();
-
 			// process the waveform inputs, the IDs run from 0..5 with the VOCT inputs occupying the next 5 spots
 			for ( int wf_id = WAVE_I_INPUT; wf_id <= WAVE_V_INPUT; wf_id++ ){
 				// Do not process this waveform if input is disconnected
@@ -313,10 +307,10 @@ struct BD_osC : Module {
 					inputs[INPUT_6_INPUT].getVoltage(),
 					inputs[INPUT_7_INPUT].getVoltage(),
 					inputs[INPUT_8_INPUT].getVoltage(),
-					input_9_avg,
-					input_10_avg,
-					input_11_avg,
-					input_12_avg,
+					inputs[INPUT_9_INPUT].getVoltage(),
+					inputs[INPUT_10_INPUT].getVoltage(),
+					inputs[INPUT_11_INPUT].getVoltage(),
+					inputs[INPUT_12_INPUT].getVoltage(),
 					inputs[INPUT_13_INPUT].getVoltage(),
 				};
 
