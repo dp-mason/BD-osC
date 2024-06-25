@@ -42,21 +42,23 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std
 }
 
 // Function to convert a vector of floats to a CSV string
-void saveWfKeyframesToCSV(const std::vector<std::vector<std::vector<float>>>& wfKyfrms, const std::string parentFolderPath) {
+void saveWfKeyframesToCSV(const std::list<std::vector<std::vector<float>>>& wfKyfrms, const std::string parentFolderPath) {
 	
 	if(wfKyfrms.size() == 0) {
 		return;
 	}
 
 	std::vector<std::ostringstream> csvStreams;
-	csvStreams.resize(wfKyfrms[0].size());
+	csvStreams.resize(5);
 
-	for (size_t kframe = 0; kframe < wfKyfrms.size(); kframe++) {
-		for (size_t wave = 0; wave < wfKyfrms[0].size(); wave++) {
-			if (wfKyfrms[kframe][wave].size() == 0){ continue; }
-			for (size_t sample = 0; sample < wfKyfrms[0][0].size(); sample++) {
-				csvStreams[wave] << std::to_string( wfKyfrms[kframe][wave][sample] );
-				if(sample < wfKyfrms[0][0].size() - 1){
+	for (const auto& kframe : wfKyfrms) {
+		for (size_t wave = 0; wave < 5; wave++) {
+			for (size_t sample = 0; sample < kframe[0].size(); sample++) {
+				if (sample > 127) {
+					DEBUG("SAMPLE IS: %ld", sample);
+				}
+				csvStreams[wave] << std::fixed << std::setprecision(3) << kframe[wave][sample];
+				if(sample < kframe[0].size() - 1){
 					csvStreams[wave] << ",";
 				}
 			}
@@ -66,7 +68,7 @@ void saveWfKeyframesToCSV(const std::vector<std::vector<std::vector<float>>>& wf
 	}
 
 	// Create or open the CSV file and write the CSV data
-	for (int wave = 0; wave < int(wfKyfrms[0].size()); wave++) {
+	for (int wave = 0; wave < 5; wave++) {
 		std::ofstream csvFile(parentFolderPath + "wave_" + std::to_string(wave + 1) + "_keyframes.csv");
 		if (csvFile.is_open()) {
 			csvFile << csvStreams[wave].str();
@@ -97,30 +99,22 @@ struct BD_osC : Module {
 	float input_12_avg = 0.f;
 
 	// Determines the resolution of a visualized waveform
-	int64_t maxWfResolution = 256;
+	int64_t maxWfResolution = 128;
 
     // Set the dimensions, number of waveforms
-    int numWfs = 5;
+    size_t numWfs = 5;
 
 	std::vector<bool> wfRecordState = std::vector<bool>(numWfs, false); // TODO: wtf is this for again? Unused.
 
 	// Define a matrix representing the current state of all the waveforms
-    std::vector<std::vector<float>> currWfKframeState = std::vector<std::vector<float>> (
-		numWfs,
-		std::vector<float> (maxWfResolution, 0.f)
-	);
+    std::vector<std::vector<float>> currWfKframeState;
 
 	// Define a tensor representing the visual keyframes of the waves over time
 	// At the end of each keyframe, the matrix representing the current state of all waveforms will be appended
 	// Think of it like every keyframe is a sheet of paper with 5 waveform states, each time a keyframe is added
-	// 	a new sheet of paper is placed at the bottom of the stack (the momory isnt moved as if it were a "stack" though) 
-    std::vector<std::vector<std::vector<float>>> waveformKeyframes = std::vector<std::vector<std::vector<float>>>(
-		1, 
-		std::vector<std::vector<float>>(
-			numWfs,
-			std::vector<float>(maxWfResolution, 0.f)
-		)
-	);
+	// 	a new sheet of paper is placed at the bottom of the stack (the memory isnt moved as if it were a "stack" though)
+	// The "list" data type should help with resizing/data corruption issues that I was experiencing
+    std::list<std::vector<std::vector<float>>> waveformKeyframes;
 
 	enum ParamId {
 		FRAME_RATE_PARAM,
@@ -208,7 +202,7 @@ struct BD_osC : Module {
 		input_11_avg = 0.0;
 		input_12_avg = 0.0;
 
-		for(int currWave = 0; currWave < numWfs; currWave++){
+		for(size_t currWave = 0; currWave < numWfs; currWave++){
 			currWfKframeState[currWave] = {std::vector<float>(maxWfResolution, 0.f)};
 		}
 	}
@@ -221,15 +215,17 @@ struct BD_osC : Module {
 	void saveKfsToDisk(std::string parent_folder){
 		// TODO: maybe spawn one async thread that saves all these files
 		// TODO: pass by ref and then make sure kf data is not erased or manipulated until done instead of pass by value
-		std::async(saveKeyframesToCSV, keyframes, parent_folder + "keyframes.csv");
-		std::async(saveWfKeyframesToCSV, waveformKeyframes, parent_folder);	
+		// std::async(saveKeyframesToCSV, keyframes, parent_folder + "keyframes.csv");
+		saveKeyframesToCSV(keyframes, parent_folder + "keyframes.csv");
+		// std::async(saveWfKeyframesToCSV, waveformKeyframes, parent_folder);
+		saveWfKeyframesToCSV(waveformKeyframes, parent_folder);
 	}
 
 	float voctToHz(float voctVoltage){
 		return (440.f / 2.f) * pow(2.f, (voctVoltage + 0.25));
 	}
 
-	void processWf(
+	int64_t processWf(
 		const ProcessArgs& args, 
 		std::vector<float>& waveKf, 
 		float voltage, 
@@ -237,17 +233,29 @@ struct BD_osC : Module {
 		int64_t framesInKf, 
 		int64_t currFrameInKf
 	){
+		// TODO: save an index for the number of samples in the wave?
+
 		// use v/oct to capture a window if the signal the length of 1 wavelength
 		// determine the number of audio samples in one wavelength of this wave
 		// input of less than -99.0 is meant to indicate that the v/oct input is disconnected
-		float samplesInWavelength = args.sampleRate / voctToHz(voctCV);
-			
-		float timeRatio = ( samplesInWavelength < maxWfResolution || samplesInWavelength > float(framesInKf) ) ? 1.000f : (maxWfResolution / samplesInWavelength);
-
-		size_t sample_index = size_t( round(fmod(float(args.frame), samplesInWavelength)) * timeRatio ) % maxWfResolution;
-			
-		waveKf[sample_index] = (waveKf[sample_index] * 0.5) + (voltage * 0.5);
+		float samplesInWavelength = std::trunc(args.sampleRate / voctToHz(voctCV));
 		
+		bool wavelen_fits = (samplesInWavelength <= maxWfResolution);
+		float timeRatio = wavelen_fits ? 1.000f : (maxWfResolution / samplesInWavelength);
+
+		int64_t sample_index = int64_t( round(fmod(float(args.frame), samplesInWavelength) * timeRatio) ) % maxWfResolution;
+		//int64_t sample_index = (args.frame % int64_t(samplesInWavelength)) % maxWfResolution;
+
+		// // DEBUG
+		// if(sample_index == 132 && args.frame % 3 == 0){
+		// 	DEBUG("sample index: %ld\nsamplesInWavelength: %f\nmaxWf Res: %ld\nwavelen_fits: %d\n", sample_index, samplesInWavelength, maxWfResolution, wavelen_fits);
+		// }
+			
+		//waveKf[sample_index] = (std::abs(voltage) > 20.0) ? 0.0 : std::round(voltage * 1000) / 1000; //(waveKf[sample_index] * 0.5) + (voltage * 0.5);
+		waveKf[sample_index] = std::round(voltage * 1000) / 1000; //(waveKf[sample_index] * 0.5) + (voltage * 0.5);
+
+		// return the sample index for debug purposes
+		return sample_index;
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -256,6 +264,11 @@ struct BD_osC : Module {
 		if(prevStartVoltage == 0.f && inputs[START_INPUT].getVoltage() > prevStartVoltage){
 			recordingActive = true;
 			startFrame = args.frame;
+
+			currWfKframeState = std::vector<std::vector<float>>(numWfs);
+			for(size_t currWave = 0; currWave < numWfs; currWave++){
+				currWfKframeState[currWave] = {std::vector<float>(maxWfResolution, 0.f)};
+			}
 		}
 		prevStartVoltage = inputs[START_INPUT].getVoltage();
 
@@ -286,6 +299,10 @@ struct BD_osC : Module {
 					// if the v/oct input of this waveform is disconnected, communicate that by sending a tiny value to keyframe func
 					float voct_voltage = (inputs[wf_id + 5].isConnected()) ? inputs[wf_id + 5].getVoltage() : -100.0;
 					processWf(args, currWfKframeState[wf_id], inputs[wf_id].getVoltage(), voct_voltage, framesInKeyframe, currFrameInKf);
+					// DEBUG - REMOVE LATER 
+					// if(std::abs(currWfKframeState[0][132]) > 0.01 && args.frame % 120 == 0) {
+					// 	DEBUG("DURING WAVE: %d\nVALUE OF waveform 0 at index 132 has CHANGED TO: %f\nDURING THE PROCESSING OF SAMPLE: %ld\nTOTAL FRAME: %ld", wf_id, currWfKframeState[0][132], sample, args.frame);
+					// }
 				}
 				else {
 					continue;
