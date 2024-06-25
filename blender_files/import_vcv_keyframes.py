@@ -76,7 +76,14 @@ for obj in vcv_wfs.objects:
     if len(obj.name) >= 5 and obj.name[0:5] == "wave_":
         bpy.data.objects.remove(obj)
 
+# TODO: Save the set framerate from the vcv rack module
+bpy.data.scenes["Scene"].render.fps = int(30)
+
 num_tracks = len(kframes[0].split(","))
+
+# Set the frame range
+bpy.data.scenes["Scene"].frame_start = 0
+bpy.data.scenes["Scene"].frame_end = len(kframes)
 
 for i in range(0, num_tracks):
     track_obj = bpy.data.objects.new("track_" + str(i), None)

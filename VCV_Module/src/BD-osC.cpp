@@ -2,22 +2,13 @@
 #include <patch.hpp>
 
 // Function to convert a vector of floats to a CSV string
-void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std::string filePath) {
+void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std::string parentFolderPath) {
 	
 	if(kyfrms.size() == 0) {
 		return;
 	}
 
 	std::ostringstream csvStream;
-
-	// ADD TITLES TO COLUMNS
-	// for (size_t track = 0; track < kyfrms[0].size(); track++) {
-	// 	csvStream << "track_" + std::to_string(track);
-	// 	if(track != kyfrms[0].size() - 1){
-	// 		csvStream << ",";
-	// 	}
-	// }
-	// csvStream << "\n";
 
 	// Make a row out of each keyframe
 	for (size_t frame = 0; frame < kyfrms.size(); frame++) {
@@ -32,7 +23,7 @@ void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std
 	}
 
 	// Create or open the CSV file and write the CSV data
-	std::ofstream csvFile(filePath);
+	std::ofstream csvFile( parentFolderPath + "keyframes.csv" );
 	if (csvFile.is_open()) {
 		csvFile << csvStream.str();
 		csvFile.close();
@@ -54,9 +45,6 @@ void saveWfKeyframesToCSV(const std::list<std::vector<std::vector<float>>>& wfKy
 	for (const auto& kframe : wfKyfrms) {
 		for (size_t wave = 0; wave < 5; wave++) {
 			for (size_t sample = 0; sample < kframe[0].size(); sample++) {
-				if (sample > 127) {
-					DEBUG("SAMPLE IS: %ld", sample);
-				}
 				csvStreams[wave] << std::fixed << std::setprecision(3) << kframe[wave][sample];
 				if(sample < kframe[0].size() - 1){
 					csvStreams[wave] << ",";
@@ -69,7 +57,7 @@ void saveWfKeyframesToCSV(const std::list<std::vector<std::vector<float>>>& wfKy
 
 	// Create or open the CSV file and write the CSV data
 	for (int wave = 0; wave < 5; wave++) {
-		std::ofstream csvFile(parentFolderPath + "wave_" + std::to_string(wave + 1) + "_keyframes.csv");
+		std::ofstream csvFile( parentFolderPath + "wave_" + std::to_string(wave + 1) + "_keyframes.csv" );
 		if (csvFile.is_open()) {
 			csvFile << csvStreams[wave].str();
 			csvFile.close();
@@ -79,10 +67,19 @@ void saveWfKeyframesToCSV(const std::list<std::vector<std::vector<float>>>& wfKy
 	return;
 }
 
+void saveFrameRateToTxt(int64_t frame_rate, const std::string parentFolderPath){
+	std::ofstream txtFile( parentFolderPath + "framerate.txt" );
+
+	if (txtFile.is_open()) {
+		txtFile << std::to_string(frame_rate);
+		txtFile.close();
+	}
+}
+
 struct BD_osC : Module {
 
 	// TODO: connect the keyframeRate up with the appropriate param input
-	int64_t keyframeRate = 60; // stored in this data type so that there is less casting per process call
+	int64_t keyframeRate = 30; // stored in this data type so that there is less casting per process call
 	int64_t startFrame = 0; // this value is set when the RECORD input is triggered
 	bool recordingActive = false; // determines whether keyframes will be added
 	// each row is a keyframe, each column is a track. Makes it easier to append values (and prob better for mem management)
@@ -216,9 +213,11 @@ struct BD_osC : Module {
 		// TODO: maybe spawn one async thread that saves all these files
 		// TODO: pass by ref and then make sure kf data is not erased or manipulated until done instead of pass by value
 		// std::async(saveKeyframesToCSV, keyframes, parent_folder + "keyframes.csv");
-		saveKeyframesToCSV(keyframes, parent_folder + "keyframes.csv");
+		saveKeyframesToCSV(keyframes, parent_folder);
 		// std::async(saveWfKeyframesToCSV, waveformKeyframes, parent_folder);
 		saveWfKeyframesToCSV(waveformKeyframes, parent_folder);
+		// Save the frame rate to disk
+		saveFrameRateToTxt(keyframeRate, parent_folder);
 	}
 
 	float voctToHz(float voctVoltage){
@@ -238,20 +237,13 @@ struct BD_osC : Module {
 		// use v/oct to capture a window if the signal the length of 1 wavelength
 		// determine the number of audio samples in one wavelength of this wave
 		// input of less than -99.0 is meant to indicate that the v/oct input is disconnected
-		float samplesInWavelength = std::trunc(args.sampleRate / voctToHz(voctCV));
+		float samplesInWavelength = args.sampleRate / voctToHz(voctCV);
 		
 		bool wavelen_fits = (samplesInWavelength <= maxWfResolution);
 		float timeRatio = wavelen_fits ? 1.000f : (maxWfResolution / samplesInWavelength);
 
 		int64_t sample_index = int64_t( round(fmod(float(args.frame), samplesInWavelength) * timeRatio) ) % maxWfResolution;
-		//int64_t sample_index = (args.frame % int64_t(samplesInWavelength)) % maxWfResolution;
-
-		// // DEBUG
-		// if(sample_index == 132 && args.frame % 3 == 0){
-		// 	DEBUG("sample index: %ld\nsamplesInWavelength: %f\nmaxWf Res: %ld\nwavelen_fits: %d\n", sample_index, samplesInWavelength, maxWfResolution, wavelen_fits);
-		// }
 			
-		//waveKf[sample_index] = (std::abs(voltage) > 20.0) ? 0.0 : std::round(voltage * 1000) / 1000; //(waveKf[sample_index] * 0.5) + (voltage * 0.5);
 		waveKf[sample_index] = std::round(voltage * 1000) / 1000; //(waveKf[sample_index] * 0.5) + (voltage * 0.5);
 
 		// return the sample index for debug purposes
@@ -398,6 +390,7 @@ struct BD_osC : Module {
 			if( keyframes.size() > 0 ){
 				DEBUG("cols in keyframes %ld", keyframes[0].size());
 			}
+			DEBUG("framerate: %ld", keyframeRate);
 			
 			saveKfsToDisk(parent_folder);
 			
