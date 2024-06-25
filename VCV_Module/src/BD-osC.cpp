@@ -2,19 +2,15 @@
 #include <patch.hpp>
 
 // Function to convert a vector of floats to a CSV string
-void saveKeyframesToCSV(const std::vector<std::vector<float>>& kyfrms, const std::string parentFolderPath) {
+void saveKeyframesToCSV(const std::list<std::vector<float>>& kyfrms, const std::string parentFolderPath) {
 	
-	if(kyfrms.size() == 0) {
-		return;
-	}
-
 	std::ostringstream csvStream;
 
 	// Make a row out of each keyframe
-	for (size_t frame = 0; frame < kyfrms.size(); frame++) {
-		for (size_t track = 0; track < kyfrms[0].size(); track++) {
-			csvStream << std::to_string( kyfrms[frame][track] );
-			if(track < kyfrms[0].size() - 1){
+	for (const auto& kframe : kyfrms) {
+		for (size_t track = 0; track < kframe.size(); track++) {
+			csvStream << std::to_string( kframe[track] );
+			if(track < kframe.size() - 1){
 				csvStream << ",";
 			}
 		}
@@ -84,7 +80,7 @@ struct BD_osC : Module {
 	bool recordingActive = false; // determines whether keyframes will be added
 	// each row is a keyframe, each column is a track. Makes it easier to append values (and prob better for mem management)
 	// this means there will be 16 columns, one for each track
-	std::vector<std::vector<float>> keyframes;
+	std::list<std::vector<float>> keyframes;
 	
 	float prevSaveVoltage  = 0.f;
 	float prevStartVoltage = 0.f;
@@ -388,7 +384,7 @@ struct BD_osC : Module {
 
 			DEBUG("rows in keyframes %ld", keyframes.size());
 			if( keyframes.size() > 0 ){
-				DEBUG("cols in keyframes %ld", keyframes[0].size());
+				DEBUG("cols in keyframes %ld", (keyframes.front()).size());
 			}
 			DEBUG("framerate: %ld", keyframeRate);
 			
