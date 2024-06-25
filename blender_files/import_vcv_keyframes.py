@@ -56,12 +56,25 @@ def create_wf_mesh(csv_filename:str, as_grid:bool=False):
     
     return obj
 
+
+
+
 vcv_dev = os.environ['HOME'] + "/VCV_dev"
 
 kframes    = open( bpy.path.abspath("//keyframes.csv"), "r" ).readlines()
 
 vcv_gn     = bpy.data.collections['vcv_gn_templates']
 vcv_tracks = bpy.data.collections['vcv_tracks']
+vcv_wfs    = bpy.data.collections['vcv_waveforms']
+
+# cleanup old animation data
+bpy.data.node_groups["VCV_keyframes"].animation_data_clear()
+for obj in vcv_tracks.objects:
+    if len(obj.name) >= 6 and obj.name[0:6] == "track_":
+        bpy.data.objects.remove(obj)
+for obj in vcv_wfs.objects:
+    if len(obj.name) >= 5 and obj.name[0:5] == "wave_":
+        bpy.data.objects.remove(obj)
 
 num_tracks = len(kframes[0].split(","))
 
