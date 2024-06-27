@@ -21,6 +21,10 @@
 - If the v/oct input is connected, the wave keyframe captures only one wavelength of the wave and begins sampling the wave at the same point in the cycle for each frame.
 - TODO: If it is not connected. the samples in the keyframe will be spread out across the entire wave for the duration of this keyframe (1/24, 1/30, etc.)
 
+### framerate.txt
+
+- stores a single integer representing the framerate
+
 ## Import to Blender
 
 - The script and project file in the [blender_files](./blender_files/) directory can be used to import the animation csv files into a blender project
@@ -30,4 +34,6 @@
 ![image of the panel layout](./VCV_Module/res/BD-osC.jpg)
 
 ## TODO
+- handle low frequency waveforms better
+- experiment with different ways of capturing the waveform other than most recent window
 - devise, implement, and run a test to ensure the keyframer's sense of the current visual keyframe is not out of sync (esp over long runs)
