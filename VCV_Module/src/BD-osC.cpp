@@ -86,10 +86,7 @@ struct BD_osC : Module {
 	float prevStartVoltage = 0.f;
 	float prevStopVoltage  = 0.f;
 
-	float input_9_avg  = 0.f;
-	float input_10_avg = 0.f;
-	float input_11_avg = 0.f;
-	float input_12_avg = 0.f;
+	int64_t samplesInVisualFrame;
 
 	// Determines the resolution of a visualized waveform
 	int64_t maxWfResolution = 128;
@@ -190,11 +187,6 @@ struct BD_osC : Module {
 	// resets the average values of the inputs that record keyframes of the average value rather than a straight up sample
 	// resets the recorded waveforms to zero
 	void resetCurrKfData(){
-		input_9_avg  = 0.0;
-		input_10_avg = 0.0;
-		input_11_avg = 0.0;
-		input_12_avg = 0.0;
-
 		for(size_t currWave = 0; currWave < numWfs; currWave++){
 			currWfKframeState[currWave] = {std::vector<float>(maxWfResolution, 0.f)};
 		}
@@ -225,7 +217,7 @@ struct BD_osC : Module {
 		std::vector<float>& waveKf, 
 		float voltage, 
 		float voctCV, 
-		int64_t framesInKf, 
+		int64_t samplesInVisKf, 
 		int64_t currFrameInKf
 	){
 		// TODO: save an index for the number of samples in the wave?
@@ -239,8 +231,19 @@ struct BD_osC : Module {
 		float timeRatio = wavelen_fits ? 1.000f : (maxWfResolution / samplesInWavelength);
 
 		int64_t sample_index = int64_t( round(fmod(float(args.frame), samplesInWavelength) * timeRatio) ) % maxWfResolution;
-			
-		waveKf[sample_index] = std::round(voltage * 1000) / 1000; //(waveKf[sample_index] * 0.5) + (voltage * 0.5);
+					
+		// With the longer waveforms certain samples are getting overwitten over and over. The effect of only using the data from the last overwrite
+		// is that the waveform looks jagged. handling waveforms that fit and those that do not separately helps
+		// TODO: weighing the most recent sample in the same slot more might break down in some situations idk, looks ok with minimal tests
+		// TODO: I think it would be cool to optionally do averaging of how the waveform changes over the course of the visual keyframe
+		//			rather than only keeping the most recent frame of data 
+		if(wavelen_fits){
+			waveKf[sample_index] = std::round(voltage * 1000) / 1000; //(waveKf[sample_index] * 0.5) + (voltage * 0.5);
+		}
+		else{
+			// there really isn't much of a reason to use 0.6 and 0.4 here... It makes the waveforms look right though, and its simple...
+			waveKf[sample_index] = std::round( (waveKf[sample_index]*0.4 + voltage*0.6) * 1000 ) / 1000.0;
+		}
 
 		// return the sample index for debug purposes
 		return sample_index;
@@ -257,6 +260,8 @@ struct BD_osC : Module {
 			for(size_t currWave = 0; currWave < numWfs; currWave++){
 				currWfKframeState[currWave] = {std::vector<float>(maxWfResolution, 0.f)};
 			}
+
+			
 		}
 		prevStartVoltage = inputs[START_INPUT].getVoltage();
 
@@ -274,11 +279,9 @@ struct BD_osC : Module {
 			lights[RECORD_LIGHT + 0].setBrightness(1.0);
 			lights[RECORD_LIGHT + 1].setBrightness(0.0);
 			lights[RECORD_LIGHT + 2].setBrightness(0.0);
-			// TODO: this way for tracking the currframe in kf will eventually be out of sync over time, prob not relevant, but worth noting
-			// TODO: maybe this should be calles "samplesInKeyframe" for understandability
-			int64_t framesInKeyframe = (int64_t)args.sampleRate / keyframeRate; // calculated every frame bc sample rate can change during execution
-			int64_t currFrameInKf = (args.frame - startFrame) % framesInKeyframe;
-			// int fractionOfAvg = ( 1.0 / float(framesInKeyframe) );
+			
+			int64_t currFrameInKf = (args.frame - startFrame) % samplesInVisualFrame;
+			// int fractionOfAvg = ( 1.0 / float(samplesInVisualFrame) );
 			
 			// process the waveform inputs, the IDs run from 0..5 with the VOCT inputs occupying the next 5 spots
 			for ( int wf_id = WAVE_I_INPUT; wf_id <= WAVE_V_INPUT; wf_id++ ){
@@ -286,7 +289,7 @@ struct BD_osC : Module {
 				if (inputs[wf_id].isConnected()){
 					// if the v/oct input of this waveform is disconnected, communicate that by sending a tiny value to keyframe func
 					float voct_voltage = (inputs[wf_id + 5].isConnected()) ? inputs[wf_id + 5].getVoltage() : -100.0;
-					processWf(args, currWfKframeState[wf_id], inputs[wf_id].getVoltage(), voct_voltage, framesInKeyframe, currFrameInKf);
+					processWf(args, currWfKframeState[wf_id], inputs[wf_id].getVoltage(), voct_voltage, samplesInVisualFrame, currFrameInKf);
 					// DEBUG - REMOVE LATER 
 					// if(std::abs(currWfKframeState[0][132]) > 0.01 && args.frame % 120 == 0) {
 					// 	DEBUG("DURING WAVE: %d\nVALUE OF waveform 0 at index 132 has CHANGED TO: %f\nDURING THE PROCESSING OF SAMPLE: %ld\nTOTAL FRAME: %ld", wf_id, currWfKframeState[0][132], sample, args.frame);
@@ -301,7 +304,7 @@ struct BD_osC : Module {
 			if(currFrameInKf == 0){
 				// output the value of the keyframe
 				// converts this frame to a value between 0..1 depending on the frame it is in this second 1/24, 2/24, ...
-				//outputs[FRAME_START_OUTPUT].setVoltage( (float)((args.frame / framesInKeyframe) % keyframeRate) / (float)(keyframeRate) );
+				//outputs[FRAME_START_OUTPUT].setVoltage( (float)((args.frame / samplesInVisualFrame) % keyframeRate) / (float)(keyframeRate) );
 				
 				std::vector<float> thisKeyframe = {
 					inputs[INPUT_1_INPUT].getVoltage(),
@@ -373,6 +376,12 @@ struct BD_osC : Module {
 					DEBUG("UNHANDLED PARAM VALUE FOR SAMPLE RATE: %f", params[WAVE_SAMPLE_RATE_PARAM].getValue());
 					keyframeRate = 32;
 			}
+
+			// Lock in the visual framerate, the number of audio samples that are in each visual frame 
+			// TODO: this way for tracking the currframe in kf will eventually be out of sync over time, prob not relevant, but worth noting
+			//		-- David (06-28-2024): Will it really though? Why?
+			// TODO: maybe this should be calles "samplesInKeyframe" for understandability
+			samplesInVisualFrame = (int64_t)args.sampleRate / keyframeRate;
 		}
 
 		// asynchronously save the keyframes to disk as a CSV file upon trigger
