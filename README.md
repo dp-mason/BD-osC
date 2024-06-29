@@ -34,6 +34,7 @@
 ![image of the panel layout](./VCV_Module/res/BD-osC.jpg)
 
 ## TODO
-- handle low frequency waveforms better
-- experiment with different ways of capturing the waveform other than most recent window
+- handle low frequency waveforms (even) better (better interpolation would fix the jaggedness of low freq waveforms at high waveform sampling resoltion?)
+- experiment with different ways of capturing the waveform other than most recent window (average, weighted avg, maybe diff scaling?)
+	- give users the option to enable a smoother capture for each waveform? for all?
 - devise, implement, and run a test to ensure the keyframer's sense of the current visual keyframe is not out of sync (esp over long runs)
