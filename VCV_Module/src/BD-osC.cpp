@@ -127,19 +127,19 @@ struct BD_osC : Module {
 		START_INPUT,
 		ABORT_INPUT,
 		SAVE_INPUT,
-		INPUT_1_INPUT,
-		INPUT_2_INPUT,
-		INPUT_3_INPUT,
-		INPUT_4_INPUT,
-		INPUT_5_INPUT,
-		INPUT_6_INPUT,
-		INPUT_7_INPUT,
-		INPUT_8_INPUT,
-		INPUT_9_INPUT,
-		INPUT_10_INPUT,
-		INPUT_11_INPUT,
-		INPUT_12_INPUT,
-		INPUT_13_INPUT,
+		INPUT_1,
+		INPUT_2,
+		INPUT_3,
+		INPUT_4,
+		INPUT_5,
+		INPUT_6,
+		INPUT_7,
+		INPUT_8,
+		INPUT_9,
+		INPUT_10,
+		INPUT_11,
+		INPUT_12,
+		INPUT_13,
 		INPUTS_LEN
 	};
 	enum OutputId {
@@ -169,19 +169,19 @@ struct BD_osC : Module {
 		configInput(VOCT_III_INPUT, "");
 		configInput(VOCT_IV_INPUT, "");
 		configInput(VOCT_V_INPUT, "");
-		configInput(INPUT_1_INPUT, "");
-		configInput(INPUT_2_INPUT, "");
-		configInput(INPUT_3_INPUT, "");
-		configInput(INPUT_4_INPUT, "");
-		configInput(INPUT_5_INPUT, "");
-		configInput(INPUT_6_INPUT, "");
-		configInput(INPUT_7_INPUT, "");
-		configInput(INPUT_8_INPUT, "");
-		configInput(INPUT_9_INPUT, "");
-		configInput(INPUT_10_INPUT, "");
-		configInput(INPUT_11_INPUT, "");
-		configInput(INPUT_12_INPUT, "");
-		configInput(INPUT_13_INPUT, "");
+		configInput(INPUT_1, "");
+		configInput(INPUT_2, "");
+		configInput(INPUT_3, "");
+		configInput(INPUT_4, "");
+		configInput(INPUT_5, "");
+		configInput(INPUT_6, "");
+		configInput(INPUT_7, "");
+		configInput(INPUT_8, "");
+		configInput(INPUT_9, "");
+		configInput(INPUT_10, "");
+		configInput(INPUT_11, "");
+		configInput(INPUT_12, "");
+		configInput(INPUT_13, "");
 	}
 
 	// resets the average values of the inputs that record keyframes of the average value rather than a straight up sample
@@ -230,7 +230,7 @@ struct BD_osC : Module {
 		bool wavelen_fits = (samplesInWavelength <= maxWfResolution);
 		float timeRatio = wavelen_fits ? 1.000f : (maxWfResolution / samplesInWavelength);
 
-		int64_t sample_index = int64_t( round(fmod(float(args.frame), samplesInWavelength) * timeRatio) ) % maxWfResolution;
+		float sample_index = fmod(float(args.frame), samplesInWavelength) * timeRatio;
 					
 		// With the longer waveforms certain samples are getting overwitten over and over. The effect of only using the data from the last overwrite
 		// is that the waveform looks jagged. handling waveforms that fit and those that do not separately helps
@@ -238,11 +238,15 @@ struct BD_osC : Module {
 		// TODO: I think it would be cool to optionally do averaging of how the waveform changes over the course of the visual keyframe
 		//			rather than only keeping the most recent frame of data 
 		if(wavelen_fits){
-			waveKf[sample_index] = std::round(voltage * 1000) / 1000; //(waveKf[sample_index] * 0.5) + (voltage * 0.5);
+			waveKf[int64_t(sample_index)] = std::round(voltage * 1000) / 1000; //(waveKf[sample_index] * 0.5) + (voltage * 0.5);
 		}
 		else{
+			int64_t sample_index_lower = int64_t(sample_index);
+			int64_t sample_index_higher = (sample_index_lower + 1) % int64_t(samplesInWavelength);
+			float ratio = fmod(sample_index, 1.00);
 			// there really isn't much of a reason to use 0.6 and 0.4 here... It makes the waveforms look right though, and its simple...
-			waveKf[sample_index] = std::round( (waveKf[sample_index]*0.4 + voltage*0.6) * 1000 ) / 1000.0;
+			waveKf[sample_index_lower] = std::round( (waveKf[sample_index_lower]*0.4 + voltage*ratio*0.6) * 1000 ) / 1000.0;
+			waveKf[sample_index_higher] = std::round( (waveKf[sample_index_higher]*0.4 + voltage*(1.0-ratio)*0.6) * 1000 ) / 1000.0;
 		}
 
 		// return the sample index for debug purposes
@@ -307,19 +311,19 @@ struct BD_osC : Module {
 				//outputs[FRAME_START_OUTPUT].setVoltage( (float)((args.frame / samplesInVisualFrame) % keyframeRate) / (float)(keyframeRate) );
 				
 				std::vector<float> thisKeyframe = {
-					inputs[INPUT_1_INPUT].getVoltage(),
-					inputs[INPUT_2_INPUT].getVoltage(),
-					inputs[INPUT_3_INPUT].getVoltage(),
-					inputs[INPUT_4_INPUT].getVoltage(),
-					inputs[INPUT_5_INPUT].getVoltage(),
-					inputs[INPUT_6_INPUT].getVoltage(),
-					inputs[INPUT_7_INPUT].getVoltage(),
-					inputs[INPUT_8_INPUT].getVoltage(),
-					inputs[INPUT_9_INPUT].getVoltage(),
-					inputs[INPUT_10_INPUT].getVoltage(),
-					inputs[INPUT_11_INPUT].getVoltage(),
-					inputs[INPUT_12_INPUT].getVoltage(),
-					inputs[INPUT_13_INPUT].getVoltage(),
+					inputs[INPUT_1].getVoltage(),
+					inputs[INPUT_2].getVoltage(),
+					inputs[INPUT_3].getVoltage(),
+					inputs[INPUT_4].getVoltage(),
+					inputs[INPUT_5].getVoltage(),
+					inputs[INPUT_6].getVoltage(),
+					inputs[INPUT_7].getVoltage(),
+					inputs[INPUT_8].getVoltage(),
+					inputs[INPUT_9].getVoltage(),
+					inputs[INPUT_10].getVoltage(),
+					inputs[INPUT_11].getVoltage(),
+					inputs[INPUT_12].getVoltage(),
+					inputs[INPUT_13].getVoltage(),
 				};
 
 				keyframes.push_back(thisKeyframe);
@@ -442,32 +446,32 @@ struct BD_osCWidget : ModuleWidget {
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.502, 49.044)), module, BD_osC::INPUT_1));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(39.611, 45.975)), module, BD_osC::INPUT_2));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(62.871, 47.059)), module, BD_osC::INPUT_3));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(85.815, 51.288)), module, BD_osC::INPUT_4));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.335, 68.777)), module, BD_osC::INPUT_5));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(53.596, 68.292)), module, BD_osC::INPUT_6));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(76.645, 71.479)), module, BD_osC::INPUT_7));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.532, 93.388)), module, BD_osC::INPUT_8));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(39.608, 90.196)), module, BD_osC::INPUT_9));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(62.837, 91.32)), module, BD_osC::INPUT_10));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(85.809, 95.59)), module, BD_osC::INPUT_11));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(108.676, 100.108)), module, BD_osC::INPUT_12));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(131.844, 102.18)), module, BD_osC::INPUT_13));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(28.534, 13.424)), module, BD_osC::START_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(59.936, 13.354)), module, BD_osC::ABORT_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(90.878, 19.109)), module, BD_osC::SAVE_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(39.611, 45.975)), module, BD_osC::INPUT_2_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(106.828, 46.561)), module, BD_osC::WAVE_I_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(62.871, 47.059)), module, BD_osC::INPUT_3_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.502, 49.044)), module, BD_osC::INPUT_1_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(134.556, 49.003)), module, BD_osC::WAVE_II_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(85.815, 51.288)), module, BD_osC::INPUT_4_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(115.716, 56.7)), module, BD_osC::VOCT_I_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(143.609, 59.145)), module, BD_osC::VOCT_II_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(53.596, 68.292)), module, BD_osC::INPUT_6_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(30.335, 68.777)), module, BD_osC::INPUT_5_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(95.721, 71.242)), module, BD_osC::WAVE_III_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(76.645, 71.479)), module, BD_osC::INPUT_7_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(123.479, 74.974)), module, BD_osC::WAVE_IV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(151.449, 75.38)), module, BD_osC::WAVE_V_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(104.727, 81.414)), module, BD_osC::VOCT_III_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(132.461, 85.203)), module, BD_osC::VOCT_IV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(160.423, 85.545)), module, BD_osC::VOCT_V_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(39.608, 90.196)), module, BD_osC::INPUT_9_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(62.837, 91.32)), module, BD_osC::INPUT_10_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(16.532, 93.388)), module, BD_osC::INPUT_8_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(85.809, 95.59)), module, BD_osC::INPUT_11_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(108.676, 100.108)), module, BD_osC::INPUT_12_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(131.844, 102.18)), module, BD_osC::INPUT_13_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(106.828, 46.561)), module, BD_osC::WAVE_I_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(134.556, 49.003)), module, BD_osC::WAVE_II_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(95.721, 71.242)), module, BD_osC::WAVE_III_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(123.479, 74.974)), module, BD_osC::WAVE_IV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(151.449, 75.38)), module, BD_osC::WAVE_V_INPUT));
 	}
 };
 
